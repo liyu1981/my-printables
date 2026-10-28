@@ -1,23 +1,30 @@
-import { Box, ChevronLeft, ChevronRight, Download, Grid3X3, Home, Maximize2, Minus, Move3D, Palette, Plus, RotateCw, Save, Sun, X } from 'lucide-react'
+import { Box, Check, ChevronLeft, ChevronRight, Crop, Download, Grid3X3, Home, ImagePlus, Loader2, Maximize2, Minus, Move3D, Palette, Plus, RotateCw, Save, Sun, X } from 'lucide-react'
+import { useAtom } from 'jotai'
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three-stdlib'
 import { disposeObject, fitCameraToObject, loadModelObject, normalizeModel } from '../../lib/load-model'
 import { formatBytes } from '../../lib/api'
 import { fileUrl, type Model, type ModelFile } from '../../lib/models'
+import { authAtom } from '../../atoms/auth'
 
 type Background = 'white' | 'canvas' | 'dark'
+type Selection = { x: number; y: number; w: number; h: number }
 
 export default function ModelViewer({
   model,
   files,
   initialFileId,
   onClose,
+  canEdit = false,
+  onImageSaved,
 }: {
   model: Model
   files: ModelFile[]
   initialFileId?: string
   onClose: () => void
+  canEdit?: boolean
+  onImageSaved?: () => void | Promise<void>
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef<THREE.Scene | null>(null)
@@ -37,6 +44,16 @@ export default function ModelViewer({
   const [background, setBackground] = useState<Background>('white')
   const [dims, setDims] = useState('')
   const [sizeText, setSizeText] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saveMessage, setSaveMessage] = useState('')
+  const [saveError, setSaveError] = useState('')
+  const [captureMode, setCaptureMode] = useState(false)
+  const [selection, setSelection] = useState<Selection | null>(null)
+  const dragStart = useRef<{ x: number; y: number } | null>(null)
+  const captureModeRef = useRef(false)
+  const [auth] = useAtom(authAtom)
+
+  useEffect(() => { captureModeRef.current = captureMode }, [captureMode])
   const currentFile = files.find((f) => f.id === fileId) ?? files[0]
   const idx = files.findIndex((f) => f.id === currentFile?.id)
 
@@ -100,7 +117,17 @@ export default function ModelViewer({
     tick()
 
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        if (captureModeRef.current) {
+          e.preventDefault()
+          setCaptureMode(false)
+          setSelection(null)
+          return
+        }
+        onClose()
+        return
+      }
+      if (captureModeRef.current) return
       if (e.key === 'ArrowRight' && files.length > 1) next()
       if (e.key === 'ArrowLeft' && files.length > 1) prev()
     }
@@ -196,18 +223,102 @@ export default function ModelViewer({
   function next() { if (!files.length) return; const i = (idx + 1) % files.length; setFileId(files[i].id) }
   function prev() { if (!files.length) return; const i = (idx - 1 + files.length) % files.length; setFileId(files[i].id) }
   function home() { if (currentRef.current && cameraRef.current && controlsRef.current) fitCameraToObject(cameraRef.current, controlsRef.current, currentRef.current) }
-  function screenshot() {
+  function captureBlob(region?: Selection | null): Promise<Blob | null> {
     const renderer = rendererRef.current
-    if (!renderer) return
-    renderer.render(sceneRef.current!, cameraRef.current!)
-    renderer.domElement.toBlob((blob) => {
+    if (!renderer || !sceneRef.current || !cameraRef.current) return Promise.resolve(null)
+    renderer.render(sceneRef.current, cameraRef.current)
+    const source = renderer.domElement
+    if (!region || region.w < 2 || region.h < 2) {
+      return new Promise((resolve) => source.toBlob(resolve, 'image/png'))
+    }
+    const scaleX = source.width / Math.max(source.clientWidth, 1)
+    const scaleY = source.height / Math.max(source.clientHeight, 1)
+    const sx = Math.max(0, Math.round(region.x * scaleX))
+    const sy = Math.max(0, Math.round(region.y * scaleY))
+    const sw = Math.max(1, Math.min(source.width - sx, Math.round(region.w * scaleX)))
+    const sh = Math.max(1, Math.min(source.height - sy, Math.round(region.h * scaleY)))
+    const out = document.createElement('canvas')
+    out.width = sw
+    out.height = sh
+    const ctx = out.getContext('2d')
+    if (!ctx) return Promise.resolve(null)
+    ctx.drawImage(source, sx, sy, sw, sh, 0, 0, sw, sh)
+    return new Promise((resolve) => out.toBlob(resolve, 'image/png'))
+  }
+  function screenshot() {
+    captureBlob().then((blob) => {
       if (!blob) return
       const a = document.createElement('a')
       a.href = URL.createObjectURL(blob)
       a.download = `${model.title.replace(/[^\w.-]+/g, '-')}.png`
       a.click()
       setTimeout(() => URL.revokeObjectURL(a.href), 1000)
-    }, 'image/png')
+    })
+  }
+  function startCapture() {
+    if (!canEdit) return
+    const el = containerRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setSelection({ x: rect.width * 0.12, y: rect.height * 0.12, w: rect.width * 0.76, h: rect.height * 0.76 })
+    setCaptureMode(true)
+    setSaveError('')
+    setSaveMessage('')
+  }
+  function cancelCapture() {
+    setCaptureMode(false)
+    setSelection(null)
+    dragStart.current = null
+  }
+  function pointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (!captureMode) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = clamp(e.clientX - rect.left, 0, rect.width)
+    const y = clamp(e.clientY - rect.top, 0, rect.height)
+    dragStart.current = { x, y }
+    setSelection({ x, y, w: 0, h: 0 })
+  }
+  function pointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!dragStart.current) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = clamp(e.clientX - rect.left, 0, rect.width)
+    const y = clamp(e.clientY - rect.top, 0, rect.height)
+    const start = dragStart.current
+    setSelection({ x: Math.min(start.x, x), y: Math.min(start.y, y), w: Math.abs(x - start.x), h: Math.abs(y - start.y) })
+  }
+  function pointerUp() {
+    dragStart.current = null
+  }
+  async function saveSelection() {
+    if (!canEdit || saving || !selection || selection.w < 8 || selection.h < 8) return
+    setSaving(true)
+    setSaveError('')
+    setSaveMessage('')
+    try {
+      if (!auth.csrf) throw new Error('Sign in again to save an image.')
+      const blob = await captureBlob(selection)
+      if (!blob) throw new Error('Could not capture the selected area.')
+      const fd = new FormData()
+      fd.append('file', new File([blob], `${model.slug || model.id}-viewer.png`, { type: 'image/png' }))
+      const res = await fetch(`/api/models/${model.id}/images`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'X-CSRF-Token': auth.csrf },
+        body: fd,
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(body?.error?.message || 'Could not save the image.')
+      cancelCapture()
+      setSaveMessage('Selected view saved to gallery')
+      await onImageSaved?.()
+      window.setTimeout(() => setSaveMessage(''), 2500)
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Could not save the image.')
+      window.setTimeout(() => setSaveError(''), 4000)
+    } finally {
+      setSaving(false)
+    }
   }
   function fullscreen() {
     if (!document.fullscreenElement) containerRef.current?.requestFullscreen().catch(() => {})
@@ -226,9 +337,69 @@ export default function ModelViewer({
         <ToolButton label="Grid" active={grid} onClick={() => setGrid((v) => !v)}><Grid3X3 className="h-4 w-4" /></ToolButton>
         <ToolButton label="Background" onClick={() => setBackground((b) => b === 'white' ? 'canvas' : b === 'canvas' ? 'dark' : 'white')}><Palette className="h-4 w-4" /></ToolButton>
         <ToolButton label="Fullscreen" onClick={fullscreen}><Maximize2 className="h-4 w-4" /></ToolButton>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={startCapture}
+            disabled={saving}
+            className="col-span-3 mt-0.5 flex h-8 items-center justify-center gap-1.5 border-t border-line pt-1 text-[10px] font-semibold text-brand-strong hover:bg-brand-soft disabled:opacity-60"
+          >
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+            {saving ? 'Saving…' : 'Save to gallery'}
+          </button>
+        )}
       </div>
 
       <button onClick={onClose} className="absolute right-4 top-4 z-10 flex h-11 w-11 items-center justify-center border border-line bg-surface text-ink hover:bg-canvas" aria-label="Close 3D viewer"><X className="h-6 w-6" /></button>
+
+      {captureMode && (
+        <div className="absolute inset-0 z-40">
+          <div
+            className="absolute inset-0 cursor-crosshair touch-none"
+            onPointerDown={pointerDown}
+            onPointerMove={pointerMove}
+            onPointerUp={pointerUp}
+            onPointerCancel={pointerUp}
+          >
+            {selection && (
+              <div
+                className="absolute border-2 border-brand"
+                style={{
+                  left: selection.x, top: selection.y, width: selection.w, height: selection.h,
+                  boxShadow: '0 0 0 9999px rgba(0,0,0,.48)',
+                }}
+              >
+                <span className="absolute -left-1 -top-1 h-2 w-2 bg-brand" />
+                <span className="absolute -right-1 -top-1 h-2 w-2 bg-brand" />
+                <span className="absolute -bottom-1 -left-1 h-2 w-2 bg-brand" />
+                <span className="absolute -bottom-1 -right-1 h-2 w-2 bg-brand" />
+              </div>
+            )}
+          </div>
+          <div className="absolute left-1/2 top-4 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 border border-line bg-surface/95 px-4 py-2.5 shadow-sm">
+            <Crop className="h-4 w-4 shrink-0 text-brand" />
+            <span className="hidden text-xs text-muted sm:inline">Drag to select the gallery area</span>
+            <span className="text-xs text-muted sm:hidden">Drag to select</span>
+            <button type="button" onClick={cancelCapture} className="btn-secondary !min-h-8 !px-3 !text-[11px]">Cancel</button>
+            <button
+              type="button"
+              onClick={saveSelection}
+              disabled={saving || !selection || selection.w < 8 || selection.h < 8}
+              className="btn-primary !min-h-8 !px-3 !text-[11px] disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+              {saving ? 'Saving…' : 'Save image'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {(saveMessage || saveError) && (
+        <div className={`absolute left-1/2 top-4 z-50 flex -translate-x-1/2 items-center gap-2 border px-3 py-2 text-xs shadow-sm ${saveError ? 'border-danger/40 bg-danger/5 text-danger' : 'border-success/40 bg-success/10 text-ink'}`}>
+          {saveError ? <X className="h-4 w-4" /> : <Check className="h-4 w-4 text-success" />}
+          {saveError || saveMessage}
+        </div>
+      )}
 
       {files.length > 1 && (
         <>
@@ -284,6 +455,10 @@ function applyWireframe(root: THREE.Object3D, wireframe: boolean) {
     const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
     for (const mat of mats) if (mat && 'wireframe' in mat) (mat as THREE.MeshStandardMaterial).wireframe = wireframe
   })
+}
+
+function clamp(n: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, n))
 }
 
 function fmt(n: number) {

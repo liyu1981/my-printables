@@ -235,7 +235,7 @@ export function ModelDetail() {
       </div>
       {viewerOpen && (
         <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-white text-sm text-muted">Loading 3D viewer…</div>}>
-          <ModelViewer model={m} files={files} initialFileId={viewerFileId} onClose={() => setViewerOpen(false)} />
+          <ModelViewer model={m} files={files} initialFileId={viewerFileId} onClose={() => setViewerOpen(false)} canEdit={canEdit} onImageSaved={async () => { const updated = await getModel(m.id); setDetail(updated); const uploads = (updated.model.images ?? []).filter((im) => im.kind === 'upload'); setActiveImage(Math.max(0, uploads.length - 1)) }} />
         </Suspense>
       )}
       <AddToCollection modelId={m.id} open={addOpen} onClose={() => setAddOpen(false)} />

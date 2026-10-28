@@ -10,7 +10,7 @@ and the administrative CLI.
 - Models with multiple STL / 3MF / OBJ / PLY / GLB / GLTF files
 - Public, members-only, and private visibility
 - Image uploads with automatic resizing and client-generated 3D covers
-- Fullscreen 3D preview with orbit/zoom/pan, file switching, screenshots
+- Fullscreen 3D preview with orbit/zoom/pan, file switching, screenshots, and region-crop captures saved to the gallery
 - Search, category/tag filters, likes, bookmarks, downloads
 - 1–5 star ratings, comments with one reply level, tags, and collections
 - Admin dashboard with users, content moderation, storage, audit, and settings
