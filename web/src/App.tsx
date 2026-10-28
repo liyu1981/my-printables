@@ -7,6 +7,8 @@ import { Header } from './components/Header'
 import { RequireAuth } from './components/RequireAuth'
 import { Admin } from './pages/Admin'
 import { Browse } from './pages/Browse'
+import { CollectionDetail } from './pages/CollectionDetail'
+import { Collections } from './pages/Collections'
 import { Home } from './pages/Home'
 import { Login } from './pages/Login'
 import { ModelDetail } from './pages/ModelDetail'
@@ -60,7 +62,8 @@ export function App() {
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
           <Route path="/admin" element={<RequireAuth admin><Admin /></RequireAuth>} />
-          <Route path="/collections" element={<Placeholder title="Collections" note="Collections arrive in M4." />} />
+          <Route path="/collections" element={<Collections />} />
+          <Route path="/collections/:id/:slug" element={<CollectionDetail />} />
           <Route path="/tags" element={<Tags />} />
           <Route path="/tags/:slug" element={<TagPage />} />
           <Route path="/upload" element={<RequireAuth><Upload /></RequireAuth>} />

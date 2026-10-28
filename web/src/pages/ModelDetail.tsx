@@ -1,4 +1,4 @@
-import { Bookmark, Box, Download, Eye, FileBox, Heart, Pencil, Share2, Star, Trash2 } from 'lucide-react'
+import { Bookmark, Box, Download, Eye, FileBox, FolderPlus, Heart, Pencil, Share2, Star, Trash2 } from 'lucide-react'
 import { useAtom } from 'jotai'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
@@ -8,6 +8,10 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { authAtom } from '../atoms/auth'
 import { ApiError, del, formatBytes, formatDate, post } from '../lib/api'
 import { displayCount, fileUrl, getModel, imageUrl, modelUrl, visibilityLabel, type Model, type ModelDetail as Detail } from '../lib/models'
+import { getModelCollections, type Collection } from '../lib/social'
+import { RatingInput } from '../components/RatingInput'
+import { Comments } from '../components/Comments'
+import { AddToCollection } from '../components/AddToCollection'
 
 const ModelViewer = lazy(() => import('../components/viewer/ModelViewer'))
 
@@ -19,8 +23,10 @@ export function ModelDetail() {
   const [detail, setDetail] = useState<Detail | null>(null)
   const [error, setError] = useState('')
   const [activeImage, setActiveImage] = useState(0)
-  const [tab, setTab] = useState<'details' | 'files' | 'related'>('details')
+  const [tab, setTab] = useState<'details' | 'files' | 'comments' | 'collections' | 'related'>('details')
   const [related, setRelated] = useState<Model[]>([])
+  const [collections, setCollections] = useState<Collection[]>([])
+  const [addOpen, setAddOpen] = useState(false)
   const [busy, setBusy] = useState('')
   const [viewerOpen, setViewerOpen] = useState(false)
   const [viewerFileId, setViewerFileId] = useState('')
@@ -32,6 +38,7 @@ export function ModelDetail() {
       setDetail(d)
       setActiveImage(0)
       fetch(`/api/models/${d.model.id}/related`).then((r) => r.json()).then((x) => setRelated(x.items ?? [])).catch(() => {})
+      getModelCollections(d.model.id).then((x) => setCollections(x.items)).catch(() => {})
     }).catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load model.'))
   }, [id])
 
@@ -101,7 +108,7 @@ export function ModelDetail() {
             </div>
           )}
           <div className="mt-6 flex gap-6 overflow-x-auto border-b border-line text-sm font-bold text-muted">
-            {([['details', 'Details'], ['files', `Files (${files.length})`], ['related', 'Related']] as const).map(([key, label]) => (
+            {([['details', 'Details'], ['files', `Files (${files.length})`], ['comments', `Comments (${m.commentCount})`], ['collections', `Collections (${collections.length})`], ['related', 'Related']] as const).map(([key, label]) => (
               <button key={key} onClick={() => setTab(key)} className={`whitespace-nowrap border-b-2 pb-3 ${tab === key ? 'border-brand text-ink' : 'border-transparent hover:text-ink'}`}>{label}</button>
             ))}
           </div>
@@ -141,6 +148,19 @@ export function ModelDetail() {
             </div>
           )}
 
+          {tab === 'comments' && <Comments model={m} />}
+
+          {tab === 'collections' && (
+            <div className="py-6">
+              {collections.length ? collections.map((c) => (
+                <Link key={c.id} to={`/collections/${c.id}/${c.slug}`} className="mb-2 flex items-center gap-3 border border-line bg-surface p-3 hover:border-line-strong">
+                  <span className="flex h-10 w-10 items-center justify-center bg-canvas"><Box className="h-5 w-5 text-brand" /></span>
+                  <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-ink">{c.name}</span><span className="block text-[11px] text-muted">by {c.ownerName} · {c.modelCount} models</span></span>
+                </Link>
+              )) : <p className="text-sm text-muted">This model is not in any visible collections yet.</p>}
+            </div>
+          )}
+
           {tab === 'related' && (
             <div className="grid gap-4 py-6 sm:grid-cols-2">
               {related.map((r) => <Link key={r.id} to={modelUrl(r)} className="card-line flex gap-3 p-3 hover:border-line-strong">
@@ -157,10 +177,8 @@ export function ModelDetail() {
             <h1 className="font-display text-3xl font-bold leading-tight text-ink">{m.title}</h1>
             <span className="shrink-0 text-[11px] text-muted">{formatDate(m.publishedAt)}</span>
           </div>
-          <div className="mt-2 flex items-center gap-3 text-xs text-muted">
-            <span className="flex items-center gap-1"><Star className={`h-4 w-4 ${m.ratingCount ? 'fill-current text-star' : ''}`} /> {m.ratingCount ? m.ratingAvg.toFixed(1) : 'No ratings'} {m.ratingCount > 0 && <span>({displayCount(m.ratingCount)})</span>}</span>
-            <span>·</span><span>{m.categoryName || 'Uncategorized'}</span>
-          </div>
+          <div className="mt-3"><RatingInput model={m} onChange={(summary) => setDetail((prev) => prev ? { ...prev, model: { ...prev.model, ratingAvg: summary.ratingAvg, ratingCount: summary.ratingCount, myRating: summary.myRating } } : prev)} /></div>
+          <div className="mt-1 text-xs text-muted">{m.categoryName || 'Uncategorized'}</div>
           <div className="mt-5 flex items-center gap-3 border-y border-line py-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-soft text-xs font-bold text-brand-strong">{m.ownerName.slice(0, 1).toUpperCase()}</span>
             <div className="min-w-0"><Link to={`/u/${m.ownerUsername}`} className="block truncate text-sm font-bold text-ink hover:underline">{m.ownerName}</Link><p className="text-[11px] text-muted">@{m.ownerUsername}</p></div>
@@ -172,6 +190,7 @@ export function ModelDetail() {
               <a href={fileUrl(m.id, preview.id, true)} className="btn-primary w-full"><Download className="h-4 w-4" /> Download</a>
             ) : <span className="btn-secondary w-full opacity-60">No file available</span>}
             <button onClick={() => { if (preview) { setViewerFileId(preview.id); setViewerOpen(true) } }} className="btn-secondary w-full" disabled={!preview}><Box className="h-4 w-4" /> View in 3D</button>
+            {auth.user && <button onClick={() => setAddOpen(true)} className="btn-secondary w-full"><FolderPlus className="h-4 w-4" /> Add to collection</button>}
           </div>
           <div className="mt-3 grid grid-cols-3 border border-line bg-surface text-xs">
             <button onClick={() => toggle('like')} disabled={busy === 'like'} className={`flex items-center justify-center gap-1 border-r border-line py-3 font-semibold hover:bg-canvas ${m.liked ? 'text-brand-strong' : 'text-text'}`}><Heart className={`h-4 w-4 ${m.liked ? 'fill-current' : ''}`} /> {displayCount(m.likeCount)}</button>
@@ -194,6 +213,7 @@ export function ModelDetail() {
           <ModelViewer model={m} files={files} initialFileId={viewerFileId} onClose={() => setViewerOpen(false)} />
         </Suspense>
       )}
+      <AddToCollection modelId={m.id} open={addOpen} onClose={() => setAddOpen(false)} />
     </main>
   )
 }

@@ -50,6 +50,7 @@ func (s *Server) Handler() http.Handler {
 		api.Get("/site", s.handleSite)
 		s.mountAuth(api)
 		s.mountModels(api)
+		s.mountSocial(api)
 		api.NotFound(func(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusNotFound, "not_found", "not found")
 		})

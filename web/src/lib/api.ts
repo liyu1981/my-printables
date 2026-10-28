@@ -66,6 +66,12 @@ export function patch<T>(path: string, body: unknown, csrf?: string): Promise<T>
   return api<T>(path, { method: 'PATCH', body: JSON.stringify(body), headers })
 }
 
+export function put<T>(path: string, body: unknown, csrf?: string): Promise<T> {
+  const headers: Record<string, string> = {}
+  if (csrf) headers['X-CSRF-Token'] = csrf
+  return api<T>(path, { method: 'PUT', body: JSON.stringify(body), headers })
+}
+
 export function del<T>(path: string, csrf?: string): Promise<T> {
   const headers: Record<string, string> = {}
   if (csrf) headers['X-CSRF-Token'] = csrf
