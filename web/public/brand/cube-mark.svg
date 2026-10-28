@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="cubeTitle">
+  <title id="cubeTitle">MyPrintables cube mark</title>
+  <defs>
+    <linearGradient id="topFace" x1="10" y1="4" x2="48" y2="32" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF8A57"/>
+      <stop offset="1" stop-color="#FA6831"/>
+    </linearGradient>
+    <linearGradient id="leftFace" x1="7" y1="22" x2="34" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EF733F"/>
+      <stop offset="1" stop-color="#C94E20"/>
+    </linearGradient>
+    <linearGradient id="rightFace" x1="36" y1="28" x2="58" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E05D2D"/>
+      <stop offset="1" stop-color="#9E320B"/>
+    </linearGradient>
+    <mask id="boreMask">
+      <rect width="64" height="64" fill="#fff"/>
+      <circle cx="45.5" cy="44.25" r="5.25" fill="#000"/>
+    </mask>
+  </defs>
+
+  <g mask="url(#boreMask)">
+    <path d="M32 4 58.5 18.75 32 33.5 5.5 18.75Z" fill="url(#topFace)"/>
+    <path d="M5.5 18.75 32 33.5V59.5L5.5 44.75Z" fill="url(#leftFace)"/>
+    <path d="M32 33.5 58.5 18.75V44.75L32 59.5Z" fill="url(#rightFace)"/>
+    <path d="M8.5 30.5 27 40.6M8.5 36.2 27 46.3" fill="none" stroke="#fff" stroke-opacity=".17" stroke-width="1.1" stroke-linecap="round"/>
+  </g>
+
+  <path d="M32 4 58.5 18.75 32 33.5 5.5 18.75Z" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width=".8" stroke-linejoin="round"/>
+  <path d="M5.5 18.75V44.75L32 59.5 58.5 44.75V18.75M32 33.5V59.5" fill="none" stroke="#7A2507" stroke-opacity=".3" stroke-width=".9" stroke-linejoin="round"/>
+  <circle cx="45.5" cy="44.25" r="5.25" fill="none" stroke="#7A2507" stroke-opacity=".5" stroke-width=".9"/>
+</svg>

@@ -23,6 +23,21 @@ name to **MyPrintables** (configurable).
 - Content width is generous on desktop (4 columns), but the detail page is a focused two-column layout.
 - No gradients except the hero image overlay; no glassmorphism; no colorful cards.
 
+### Brand mark
+
+<img src="../web/public/brand/cube-mark.svg" alt="MyPrintables cube mark" width="72">
+
+Original isometric cube: three orange faces, two subtle print-layer lines, and a transparent bore/hole.
+It reads at 16px and works on white, canvas, and dark surfaces.
+
+- Canonical mark: `web/public/brand/cube-mark.svg`
+- Favicon: `web/public/favicon.svg`
+- Lockup: mark at 24–28px + **MyPrintables** in `Archivo` 800, 22px, tracking `-0.03em`, 10px gap.
+- Minimum size: 16px. Clear space: 25% of the mark on all sides.
+- Do not rotate, recolor, outline, add shadows, or fill the transparent hole.
+- On dark backgrounds keep the orange mark and set the wordmark white; the bore shows the background.
+- The mark is a cube, not a letter; never stretch it non-uniformly.
+
 ---
 
 ## 2. Color tokens
@@ -50,7 +65,7 @@ Use CSS variables in Tailwind v4 `@theme`; do not hardcode hex in components.
 | `--color-success` | `#65C900` | Success badges |
 | `--color-danger` | `#CB2C2C` | Errors, destructive actions |
 | `--color-warning` | `#FFE047` | Warnings |
-| `--color-star` | `#8A8A8A` | Rating star (reserved; ratings are post-v1) |
+| `--color-star` | `#8A8A8A` | Filled rating star; active hover/own rating uses `--color-brand` |
 | `--color-overlay` | `rgba(0,0,0,.55)` | Modal/lightbox scrim |
 
 Accessibility notes:
@@ -118,8 +133,9 @@ Rules:
 - On mobile: hide the utility bar; search becomes an icon that expands a full-width bar.
 
 ### Main nav (64px desktop, 56px mobile, white, bottom 1px line, sticky)
-- Left: original cube mark (24px) + wordmark (`Archivo` 800, 22px, `-0.02em`) + optional "BETA" chip.
-- Center/left links: 3D Models, Categories, Collections, Upload. 14px/600, 12px gap, 16px padding.
+- Left: cube mark from `web/public/brand/cube-mark.svg` (24–28px) + wordmark (`Archivo` 800, 22px,
+  `-0.03em`) + optional version chip.
+- Center/left links: 3D Models, Collections, Tags, Upload. 14px/600, 12px gap, 16px padding.
   Active: 2px black underline flush with the header bottom (Printables pattern).
 - Right: `+ Create` outlined button (1px ink, 2px radius, 36px height, 14px/600) or primary orange
   "Upload" on small screens; avatar menu with My models, Settings, Admin, Log out.
@@ -176,14 +192,15 @@ Reference: 326px wide at 1440, image 4:3, flat white, 1px border, no radius.
 └──────────────────────────────┘
 ```
 
-- Creator row: 24px avatar, display name 12px/600, handle 11px muted, verified-style icon reserved for
-  admin (optional; do not fake verification).
+- Creator row: 24px avatar, display name 12px/600, handle 11px muted; an admin role badge is optional. Do
+  not display a fake verification check.
 - Image: `aspect-ratio: 4/3`; skeleton `--color-canvas`; hover image scale 1.02 (150ms) inside overflow
   hidden; category badge: 24px orange square, 2px radius, white 14px icon, top-left 8px.
 - Carousel dots: 4px white dots with shadow, bottom center; arrows on hover/focus (desktop).
 - Title: ink, 2-line clamp; on hover underline (not color change) to keep orange for actions.
-- Stats: 16px icons, 11px tabular numbers, muted; heart turns orange when liked, bookmark filled when saved;
-  hover text ink. Separate with 12px gaps, bookmark pushed right.
+- Stats: 16px icons, 11px tabular numbers, muted; heart turns orange when liked, star is filled for an
+  average rating, bookmark filled when saved; hover text ink. Separate with 12px gaps, bookmark pushed
+  right. Show the rating number (e.g. `4.8`) and a small count in the tooltip.
 - Whole card is a link; inner like/bookmark buttons stop propagation and have aria-pressed.
 - Grid: 4 columns ≥1154px, 3 ≥820px, 2 ≥520px, 1 below; gap 24px (16 mobile). Equal heights; stats row
   pinned to bottom.
@@ -198,11 +215,12 @@ Reference: 326px wide at 1440, image 4:3, flat white, 1px border, no radius.
    - Carousel dots bottom-center; arrows on hover; admin-selected featured models.
    - On mobile, text below/overlay with 32px title; crop image to focus.
 2. **Featured Models**: 24px/700 heading, 4 cards, "EXPLORE MODELS" orange uppercase CTA centered below.
-3. **Latest uploads**: 4 cards + "View all" text link; maybe 8 cards in two rows.
-4. **Browse by category**: 6–12 tiles, 1px border, icon + name + count, hover border ink; 4/3 cols.
-5. **Top creators**: horizontal row of avatar cards (avatar 72px, name, model count, follow not in v1).
-6. **Library stats**: thin band on canvas: models, files, downloads, storage used.
-7. **Footer**: 4 columns (Explore, Categories, Account, About) + bottom line with site name, version,
+3. **Featured collections**: horizontal row of 3–4 collection cards (mosaic cover, name, owner, count).
+4. **Latest uploads**: 4 cards + "View all" text link; maybe 8 cards in two rows.
+5. **Browse by category**: 6–12 tiles, 1px border, icon + name + count, hover border ink; 4/3 cols.
+6. **Top creators**: horizontal row of avatar cards (avatar 72px, name, model count, follow not in v1).
+7. **Library stats**: thin band on canvas: models, files, downloads, storage used.
+8. **Footer**: 4 columns (Explore, Collections, Tags, Account) + bottom line with site name, version,
    "Self-hosted" note. White or ink background; keep low contrast.
 
 Sections alternate white / `--color-surface-alt` with generous 64px vertical padding (40 mobile).
@@ -217,11 +235,12 @@ Sections alternate white / `--color-surface-alt` with generous 64px vertical pad
   active orange underline 2px; right: time range select (Past 30 days) and sort direction.
 - Grid: 4-up; 24px gap; padding below 64px.
 - Filter rail:
-  - Contest/banner slot reserved (not v1).
+  - Library summary strip (total models / files / storage) above categories.
   - "All Categories" heading 13px/700 uppercase; rows 40px with chevron, hover canvas.
   - "Show only models" checkboxes (featured, with makes, with contest award, exclude AI, exclude political)
     — adapt to NAS: "Featured", "Has preview", "Recently updated", "Most downloaded".
-  - Published date select; License select; File types checkboxes (STL, 3MF, OBJ, PLY, GLB, STEP).
+  - Published date select; License select; File types checkboxes (STL, 3MF, OBJ, PLY, GLB, GLTF).
+  - Tag chips (top tags) and an active tag filter; tag pages are also linkable from model detail.
   - Apply immediately (URL-synced), "Clear all" text button; mobile: "Filters" button opens drawer with
     count badge; active filters as removable chips above the grid.
 - Empty state: cube illustration, "No models match these filters", clear-filters button.
@@ -239,8 +258,8 @@ Reference: 1154px container, 2 columns (left ~58%, right ~42%), 32px gap. Header
   non-matching aspect ratios (Printables does a subtle blur).
 - Arrows on hover, dots, fullscreen icon; thumbnail strip 160×120, 6px gap, active orange 2px inset outline;
   video badge reserved.
-- Tabs below gallery (full width across both columns, 1px bottom border): Details, Files (n), Comments (n,
-  reserved), Related, Collections (reserved). 14px/700; active orange 2px bottom border; counts 11px muted.
+- Tabs below gallery (full width across both columns, 1px bottom border): Details, Files (n), Comments (n),
+  Related, Collections (n). 14px/700; active orange 2px bottom border; counts 11px muted.
 - Detail content: max-width 740px, 40px top padding. "Description" 18px/700; Markdown body 16px/1.6;
   headings 20–24px; lists with 1.5 spacing; images full-width, 2px radius; code blocks canvas.
 - Tags: "Tags" 18px/700; chips 28px height, canvas bg, 1px line, 11–12px, hover ink border; "+ more".
@@ -248,7 +267,9 @@ Reference: 1154px container, 2 columns (left ~58%, right ~42%), 32px gap. Header
 
 ### Right sidebar (sticky, top 88px)
 - Title 28px/700, 2-line clamp; bookmark/kebab at right.
-- Rating row: 5 stars (reserved) + "4 reviews"; if ratings absent, show "No ratings yet" or omit.
+- Rating row: interactive 5-star control (signed-in only), average `4.8` + `(24 ratings)`; show "Rate this
+  model" for signed-in users, "Sign in to rate" for anonymous, and "No ratings yet" when empty. The user's
+  own score is highlighted; clicking the same score again removes it (or use a small "Remove" link).
 - Creator row: 40px avatar, name 14px/700, handle 12px muted, Follow (outline) and "Members only" chip if
   applicable. Follow is post-v1; replace with "View profile" text link.
 - Short description 14px/1.5 muted; optional "read more".
@@ -261,6 +282,29 @@ Reference: 1154px container, 2 columns (left ~58%, right ~42%), 32px gap. Header
   "Edit model" secondary button and visibility quick-toggle.
 - Files summary: "3 files · STL, 3MF · 84 MB" with link to Files tab.
 - License: "CC BY-NC 4.0" + info tooltip.
+
+### Ratings
+
+- 1–5 stars, one per user per model; clicking a star submits immediately with an optimistic update.
+- Aggregate row appears on cards (star + number), in the sidebar, and in sort (`Rating`).
+- No written reviews in v1; comments are separate. Ratings are public as aggregates only.
+- Signed-out users see the control disabled with a "Sign in to rate" tooltip.
+
+### Comments tab
+
+- Header: "Comments (n)", sort select (Newest / Oldest), composer at top.
+- Composer: avatar, plain-text textarea (max 5000 chars, char counter), "Post comment" primary button;
+  anonymous users see a sign-in prompt instead.
+- Comment item: avatar 32px, name, relative time, body with preserved line breaks, actions Reply / Edit /
+  Delete (own) or Delete (model owner/admin). Edited comments show "edited".
+- Replies: one level only, indented 32px, with "Reply to @name"; no nested reply box.
+- Pagination 20 per page; loading skeletons; empty state "Be the first to comment".
+- Deletes are soft and render as "[deleted]" when replies exist.
+
+### Collections tab
+
+- Shows visible collections that contain this model: collection cover, name, owner, count; "View" link.
+- Empty: "Not in any collections yet".
 
 ### Viewer entry
 - Every previewable image with a 3D file shows a "View 3D" hover overlay and a cube badge in the thumbnail;
@@ -298,9 +342,10 @@ Reference: white canvas, orange model, minimal chrome, control pad top-left, clo
 
 Wizard with a left step list (desktop) / top progress (mobile); white panel, 1px border, 2px radius.
 
-1. **Files**: large dashed dropzone (canvas bg, 1px dashed line, cube icon), "Drop STL, 3MF, OBJ, PLY, GLB,
-   or STEP" + file picker. Files list with format badge, size, remove; progress bar per file; format hint and
-   "Preview not available for STEP" note. Mark one file as default preview.
+1. **Files**: large dashed dropzone (canvas bg, 1px dashed line, cube icon), "Drop STL, 3MF, OBJ, PLY, or
+   GLB" + file picker. Files list with format badge, size, remove; progress bar per file. Mark one file as
+   default preview. STEP/STP is not offered in v1; if dropped, show "STEP import is coming later" and do
+   not upload.
 2. **Images**: grid of image tiles; drag to reorder; set cover; upload; auto-generated 3D cover shown with a
    "Generated" badge and "Regenerate" action; recommended 4:3, min 1200px.
 3. **Details**: title (required, 3–120 chars), description Markdown editor with preview tabs, category
@@ -319,27 +364,64 @@ navigation warning.
 
 ## 13. Auth pages
 
-- Centered card max-width 420px on canvas; white surface, 1px border, 2px radius; logo mark above.
+- Centered card max-width 420px on canvas; white surface, 1px border, 2px radius; cube mark above.
 - H1 28px/700; subtitle 14px muted.
 - Inputs full width; inline errors; primary button full width 48px.
 - Login: email, password, "Forgot password?" → helper text "Ask an admin to reset it" in v1.
-- Register: email, username, display name (optional), password + strength hint; link to login.
+- Register: email, username, display name (optional), password + strength hint; link to login. Open by
+  default. When email verification is enabled, show "We'll email you a verification link" and a success
+  state instead of logging in.
 - Setup: first-run card with a short "Create the administrator account" note and a warning that the setup
   page closes after creation.
-- Footer below card: "Self-hosted on your NAS" + version; no third-party auth buttons.
+- Verify email: `/verify-email?token=…` shows Verifying → Success (auto-login) / Expired or invalid with a
+  resend form. A persistent banner appears for unverified accounts, with "Resend email" and a generic
+  success message.
+- Footer below card: "Self-hosted" + version; no third-party auth buttons.
+
+---
+
+## 13.1 Collections & tags
+
+### Collections index (`/collections`)
+- H1 "Collections" + short description; right: "New collection" primary button (signed-in).
+- Tabs: Public / Mine (Mine only when signed in); sort Newest / Most models.
+- Grid 4-up (3/2/1 responsive); collection card = 4:3 mosaic of the first four model covers (empty tiles
+  canvas), name 16/600, owner/handle, "12 models", visibility chip (Private/Members).
+- Create dialog: name (required), description, visibility radio (Public default/Members/Private).
+- Empty state: "No collections yet" + create CTA.
+
+### Collection detail (`/collections/:id/:slug`)
+- Header: cover mosaic strip or single cover, name 32/700, owner row, visibility chip, description, model
+  count; owner sees Edit / Delete, others see "Add to collection" on each model page.
+- Model grid 4-up; filter by title; if empty, "This collection is empty".
+- Private/members collections are gated by the same auth rules as models; a public collection only lists
+  models the viewer can access.
+
+### Add to collection
+- A dialog from the model card/detail: searchable list of the user's collections, checkbox toggles,
+  "Create new collection" inline; optimistic add/remove with toast.
+
+### Tags (`/tags`, `/tags/:slug`)
+- Tag index: A–Z list/grid of tag chips with counts; search field; no pagination for small libraries.
+- Tag page: breadcrumb, H1 `#tag`, count, model grid, sort tabs; "Clear tag" link.
+- Tag chips on model detail link here; upload accepts max 15 normalized tags.
 
 ---
 
 ## 14. Admin
 
-- Left sidebar 240px, white or canvas, 1px right border; sections: Dashboard, Models, Users, Categories,
-  Storage, Audit, Settings. Active item orange-soft bg + orange 3px left bar; 14px/600.
+- Left sidebar 240px, white or canvas, 1px right border; sections: Dashboard, Models, Users, Comments,
+  Collections, Categories, Storage, Audit, Settings. Active item orange-soft bg + orange 3px left bar;
+  14px/600.
 - Content: page H1 28px + description; cards with 1px border, 16px padding; tables with 12px text, 44px
   rows, sticky header, zebra hover canvas.
 - Stat tiles: 24px number (`Archivo` 700) + 12px label + optional delta; 4-up.
 - Storage bar: stacked segments (`--color-brand`, ink, line) with legend; free disk shown.
 - Destructive actions: danger outline + confirm dialog with typed name for user deletion.
 - Settings form grouped in sections; "Save changes" sticky bottom bar with dirty-state indicator.
+- Email card: verification enabled toggle, SMTP configured/from status (env values masked), "Send test
+  email", last error; enabling verification without SMTP is disabled with an explanatory note.
+- Moderation tables for comments (hide/delete), ratings (remove), and collections (force private/delete).
 - Audit: relative time + absolute tooltip; actor, action chip, target link, IP hash prefix.
 - Admin uses the same visual language, not a separate theme; no rounded dashboard cards or gradients.
 
@@ -383,12 +465,13 @@ Mobile details:
 - Dialog focus trap + return focus; Esc closes; scroll lock.
 - Form labels tied to inputs; errors via `aria-describedby`, `aria-invalid`; error summary.
 - Contrast: body ≥4.5:1, large text ≥3:1; test orange button variants; never color-only status.
-- Keyboard: cards focusable with visible ring; Enter opens; like/bookmark reachable; grid tab order logical.
+- Keyboard: cards focusable with visible ring; Enter opens; like/bookmark/rating reachable; rating stars are
+  a labeled radio group with arrow-key support; grid tab order logical.
 - Images: meaningful alt from title/caption; decorative images empty alt; 3D canvas has text alternative
   (model title, formats, dimensions) and download link.
 - Motion: honor reduced motion; no infinite animations except loading.
-- Touch targets ≥44×44px; mobile menu and viewer controls usable one-handed.
-- Test with axe on home, browse, detail, login, upload, admin.
+- Touch targets ≥44×44px; mobile menu, rating stars, and viewer controls usable one-handed.
+- Test with axe on home, browse, detail, collections, tags, login, verify, upload, admin.
 
 ---
 
@@ -407,13 +490,15 @@ Mobile details:
 1. Tokens, fonts, base styles, focus ring, containers.
 2. Button, IconButton, Input, Textarea, Select, Checkbox, Radio, Switch, Badge, Chip, Tooltip.
 3. Header/UtilityBar/Nav/SearchPill/Footer.
-4. ModelCard + skeleton + grid; StatBar; Like/Bookmark buttons.
+4. ModelCard + skeleton + grid; StatBar; Like/Bookmark buttons; StarRating.
 5. Tabs, Pagination, EmptyState, Toasts, Dialog.
 6. Gallery, ImageLightbox, DownloadButton, ActionBar, TagChips.
-7. ModelViewer + controls + file bar + thumbnails (lazy).
-8. UploadDropzone, FileList, ImageManager, CoverPicker, TagInput, VisibilityRadio.
-9. Admin table, stat tiles, storage bar, audit table, settings form.
-10. Page compositions: Home, Browse, Detail, Upload, Auth, Profile, Admin, 404/500.
+7. CommentList/CommentForm/CommentItem; RatingInput; CollectionCard/CollectionPicker/CollectionFormDialog.
+8. ModelViewer + controls + file bar + thumbnails (lazy).
+9. UploadDropzone, FileList, ImageManager, CoverPicker, TagInput, VisibilityRadio.
+10. Admin tables (users/comments/collections), stat tiles, storage bar, audit table, settings/email form.
+11. Page compositions: Home, Browse, Detail, Collections, Tag, Upload, Auth, Verify Email, Profile, Admin,
+    404/500.
 
 ---
 
@@ -425,4 +510,4 @@ Mobile details:
 - Keep cards dense: creator row, image, title, category, stats — no long descriptions.
 - Detail page: gallery and action sidebar first; description second; tabs persistent.
 - Viewer: chrome recedes; the model is the hero; white background by default.
-- Review side-by-side with `image_6`–`image_9` at M4 and adjust spacing/type, not just colors.
+- Review side-by-side with `image_6`–`image_9` at M5 and adjust spacing/type, not just colors.
