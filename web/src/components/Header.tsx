@@ -139,6 +139,20 @@ export function Header() {
                   {item.label}
                 </Link>
               ))}
+              {auth.user && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try { await post('/api/auth/logout', {}, auth.csrf) } catch { /* ignore */ }
+                    setAuth((prev) => ({ ...prev, user: null, csrf: '' }))
+                    setOpen(false)
+                    navigate('/')
+                  }}
+                  className="py-3 text-left text-sm font-semibold text-danger"
+                >
+                  Log out
+                </button>
+              )}
             </nav>
           </div>
         )}

@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
@@ -69,6 +68,13 @@ func (s *Server) mountAuth(api chi.Router) {
 		a.Get("/admin/users", s.handleAdminUsers)
 		a.Patch("/admin/users/{id}", s.handleAdminPatchUser)
 		a.Delete("/admin/users/{id}", s.handleAdminDeleteUser)
+		a.Get("/admin/models", s.handleAdminModels)
+		a.Patch("/admin/models/{id}", s.handleAdminPatchModel)
+		a.Delete("/admin/models/{id}", s.handleAdminDeleteModel)
+		a.Get("/admin/comments", s.handleAdminComments)
+		a.Get("/admin/collections", s.handleAdminCollections)
+		a.Get("/admin/audit", s.handleAdminAudit)
+		a.Get("/admin/storage", s.handleAdminStorage)
 		a.Get("/admin/settings", s.handleAdminSettings)
 		a.Patch("/admin/settings", s.handleAdminUpdateSettings)
 		a.Post("/admin/smtp/test", s.handleAdminSMTPTest)
@@ -557,10 +563,12 @@ func (s *Server) handleAdminDeleteUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	paths, _ := s.st.UserMediaPaths(r.Context(), id)
 	if err := s.st.DeleteUser(r.Context(), id); err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal", "Could not delete user.")
 		return
 	}
+	for _, p := range paths { s.fs.Remove(p) }
 	s.audit(r, self.ID, "admin.user_deleted", "user", id, `{}`)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
@@ -636,13 +644,112 @@ func (s *Server) handleAdminSMTPTest(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleAdminStats(w http.ResponseWriter, r *http.Request) {
 	var users, models int64
-	var mediaBytes sql.NullInt64
 	_ = s.st.DB.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&users)
 	_ = s.st.DB.QueryRow(`SELECT COUNT(*) FROM models`).Scan(&models)
-	_ = s.st.DB.QueryRow(`SELECT COALESCE(SUM(size_bytes),0) FROM model_files`).Scan(&mediaBytes)
+	files, mediaBytes := s.st.StorageStats(r.Context())
+	recent, _ := s.st.RecentDownloads(r.Context(), 1000)
 	writeJSON(w, http.StatusOK, map[string]any{
-		"users": users, "models": models, "mediaBytes": mediaBytes.Int64,
+		"users": users, "models": models, "mediaBytes": mediaBytes, "files": files, "downloads24h": recent,
 	})
+}
+
+func (s *Server) handleAdminModels(w http.ResponseWriter, r *http.Request) {
+	page, err := s.st.ListModels(r.Context(), store.ModelFilter{
+		Q: strings.TrimSpace(r.URL.Query().Get("q")), Sort: r.URL.Query().Get("sort"),
+		Page: intQuery(r.URL.Query().Get("page"), 1), PerPage: intQuery(r.URL.Query().Get("perPage"), 50),
+		ViewerAdmin: true, IncludeDrafts: true,
+	})
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal", "Could not load models.")
+		return
+	}
+	writeJSON(w, http.StatusOK, page)
+}
+
+func (s *Server) handleAdminPatchModel(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseID(w, r, "id")
+	if !ok { return }
+	m, err := s.st.ModelByID(r.Context(), id, currentSession(r).User.ID)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "not_found", "Model not found.")
+		return
+	}
+	var in struct {
+		Visibility *string `json:"visibility"`
+		Status     *string `json:"status"`
+		Featured   *bool   `json:"featured"`
+	}
+	if err := decodeJSON(r, &in); err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_request", "Invalid request.")
+		return
+	}
+	fields := map[string]any{}
+	if in.Visibility != nil {
+		if *in.Visibility != "public" && *in.Visibility != "members" && *in.Visibility != "private" {
+			writeErr(w, http.StatusBadRequest, "validation", "Invalid visibility."); return
+		}
+		fields["visibility"] = *in.Visibility
+	}
+	if in.Status != nil {
+		if *in.Status != "draft" && *in.Status != "published" {
+			writeErr(w, http.StatusBadRequest, "validation", "Invalid status."); return
+		}
+		fields["status"] = *in.Status
+		if *in.Status == "published" && m.PublishedAt == nil { fields["published_at"] = time.Now().Unix() }
+	}
+	if in.Featured != nil { fields["featured"] = boolInt(*in.Featured) }
+	if err := s.st.UpdateModel(r.Context(), id, fields, nil); err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal", "Could not update model.")
+		return
+	}
+	s.audit(r, currentSession(r).User.ID, "admin.model_updated", "model", id, jsonMap(fields))
+	updated, _ := s.st.ModelByID(r.Context(), id, currentSession(r).User.ID)
+	writeJSON(w, http.StatusOK, map[string]any{"model": updated})
+}
+
+func (s *Server) handleAdminDeleteModel(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseID(w, r, "id")
+	if !ok { return }
+	paths, err := s.st.DeleteModel(r.Context(), id)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "not_found", "Model not found.")
+		return
+	}
+	for _, p := range paths { s.fs.Remove(p) }
+	s.audit(r, currentSession(r).User.ID, "admin.model_deleted", "model", id, `{}`)
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (s *Server) handleAdminComments(w http.ResponseWriter, r *http.Request) {
+	items, err := s.st.AdminComments(r.Context(), intQuery(r.URL.Query().Get("limit"), 200))
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal", "Could not load comments.")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+func (s *Server) handleAdminCollections(w http.ResponseWriter, r *http.Request) {
+	page, err := s.st.ListCollections(r.Context(), "", "", "", "", 1, 200, true)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal", "Could not load collections.")
+		return
+	}
+	writeJSON(w, http.StatusOK, page)
+}
+
+func (s *Server) handleAdminAudit(w http.ResponseWriter, r *http.Request) {
+	items, err := s.st.AuditLog(r.Context(), intQuery(r.URL.Query().Get("limit"), 200))
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal", "Could not load audit log.")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+func (s *Server) handleAdminStorage(w http.ResponseWriter, r *http.Request) {
+	files, bytes := s.st.StorageStats(r.Context())
+	writeJSON(w, http.StatusOK, map[string]any{"files": files, "mediaBytes": bytes, "dataDir": s.cfg.DataDir})
 }
 
 func (s *Server) sendVerification(ctx context.Context, u store.User) error {

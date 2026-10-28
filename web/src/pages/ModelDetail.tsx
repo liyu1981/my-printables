@@ -148,7 +148,7 @@ export function ModelDetail() {
             </div>
           )}
 
-          {tab === 'comments' && <Comments model={m} />}
+          {tab === 'comments' && <Comments model={m} onCountChange={(delta) => setDetail((prev) => prev ? { ...prev, model: { ...prev.model, commentCount: Math.max(0, prev.model.commentCount + delta) } } : prev)} />}
 
           {tab === 'collections' && (
             <div className="py-6">

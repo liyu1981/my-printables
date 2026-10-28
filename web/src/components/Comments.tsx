@@ -7,7 +7,7 @@ import { ApiError } from '../lib/api'
 import type { Model } from '../lib/models'
 import { deleteComment, getComments, postComment, timeAgo, updateComment, type Comment, type CommentPage } from '../lib/social'
 
-export function Comments({ model }: { model: Model }) {
+export function Comments({ model, onCountChange }: { model: Model; onCountChange?: (delta: number) => void }) {
   const [auth] = useAtom(authAtom)
   const [page, setPage] = useState<CommentPage | null>(null)
   const [sort, setSort] = useState<'new' | 'old'>('new')
@@ -33,6 +33,7 @@ export function Comments({ model }: { model: Model }) {
     setBusy(true); setError('')
     try {
       await postComment(model.id, body, auth.csrf, replyTo?.id)
+      onCountChange?.(1)
       setBody(''); setReplyTo(null); setPageNo(1); load()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not post comment.')
@@ -55,6 +56,7 @@ export function Comments({ model }: { model: Model }) {
     setBusy(true); setError('')
     try {
       await deleteComment(id, auth.csrf)
+      onCountChange?.(-1)
       load()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not delete comment.')

@@ -468,6 +468,7 @@ func (s *Store) DeleteModel(ctx context.Context, id string) ([]string, error) {
 	for _, im := range m.Images {
 		paths = append(paths, im.OriginalPath, im.LargePath, im.ThumbPath)
 	}
+	_, _ = s.DB.ExecContext(ctx, `UPDATE collections SET model_count = MAX(0, model_count - 1) WHERE id IN (SELECT collection_id FROM collection_models WHERE model_id = ?)`, id)
 	_, err = s.DB.ExecContext(ctx, `DELETE FROM models WHERE id = ?`, id)
 	return paths, err
 }

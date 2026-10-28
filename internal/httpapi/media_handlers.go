@@ -148,6 +148,11 @@ func (s *Server) handleUploadImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer os.Remove(tmpPath)
+	imgExt := strings.ToLower(filepath.Ext(filename))
+	if imgExt != ".jpg" && imgExt != ".jpeg" && imgExt != ".png" && imgExt != ".webp" {
+		writeErr(w, http.StatusBadRequest, "invalid_image", "Images must be JPEG, PNG, or WebP.")
+		return
+	}
 	imageID := store.NewID()
 	destRel := s.fs.Rel("media", "models", modelID, "images", imageID)
 	destAbs, err := s.fs.Abs(destRel)

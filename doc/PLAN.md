@@ -1,6 +1,6 @@
 # MyPrintables — Implementation Plan
 
-Status: **Draft v2 — decisions incorporated; ready for M0**
+Status: **v1 implemented** (M0–M6 complete; Docker/NAS packaging is post-v1)
 Goal: a self-hosted, Printables-inspired 3D model library for a home NAS.
 Working name: **MyPrintables** (configurable). The layout is inspired by Printables; no proprietary
 logos, fonts, CSS, or icons from printables.com will be copied. Original cube mark:
@@ -907,4 +907,4 @@ S3 storage; ClamAV; Draco/LOD; dark mode; Prometheus metrics.
 Remaining post-v1 decisions: SMTP provider/from-address details, NAS target and UID/GID mapping, and the
 STEP conversion approach. Nothing blocks M0.
 
-Ready to start **M0** on your go-ahead; `doc/PLAN.md` is the source of truth.
+M0–M6 are implemented as the v1 single binary. See `README.md`, `doc/DEPLOY.md`, `doc/BACKUP.md`, and `doc/API.md`.
