@@ -29,6 +29,23 @@ pnpm start
 
 Open <http://localhost:8200>.
 
+## Docker
+
+```sh
+docker build -t myprintables .
+docker run -d --name myprintables -p 8200:8200 -v myprintables_data:/data myprintables
+```
+
+The image runs as UID/GID `10001` and stores everything under `/data`. For a bind mount, prepare ownership:
+
+```sh
+mkdir -p ./data
+sudo chown -R 10001:10001 ./data
+docker run -d --name myprintables -p 8200:8200 -v "$PWD/data:/data" myprintables
+```
+
+GitHub Actions publishes `ghcr.io/<owner>/<repo>` images for `v*` tags.
+
 ## Development
 
 ```sh

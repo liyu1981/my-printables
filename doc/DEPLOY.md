@@ -1,7 +1,7 @@
 # Deploying v1 (single binary)
 
-v1 ships as one static Go binary. It embeds the React SPA, migrations, CLI, and API. Docker and NAS
-packaging are post-v1.
+v1 ships as one static Go binary. It embeds the React SPA, migrations, CLI, and API. Docker packaging is
+available; Compose and NAS-specific reverse-proxy samples are still post-v1.
 
 ## Build
 
@@ -12,6 +12,28 @@ pnpm build
 
 The release build creates `bin/myprintables`. It runs the frontend production build with source maps off,
 then a stripped, static Go build.
+
+## Docker
+
+```sh
+docker build -t myprintables .
+docker run -d --name myprintables -p 8200:8200 -v myprintables_data:/data myprintables
+```
+
+The runtime image is Alpine, runs as UID/GID `10001`, and stores the database and media in `/data`.
+For a bind mount, prepare ownership first:
+
+```sh
+mkdir -p ./data
+sudo chown -R 10001:10001 ./data
+docker run -d --name myprintables -p 8200:8200 -v "$PWD/data:/data" myprintables
+```
+
+The release workflow publishes `ghcr.io/<owner>/<repo>` on `v*` tags. A published image can be run with:
+
+```sh
+docker run -d --name myprintables -p 8200:8200 -v myprintables_data:/data ghcr.io/OWNER/REPO:latest
+```
 
 ## Run
 

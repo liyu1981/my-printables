@@ -1,6 +1,6 @@
 # MyPrintables — Implementation Plan
 
-Status: **v1 implemented** (M0–M6 complete; Docker/NAS packaging is post-v1)
+Status: **v1 implemented** (M0–M6 complete; Docker image and multi-arch GHCR release added; Compose/NAS-specific packaging is post-v1)
 Goal: a self-hosted, Printables-inspired 3D model library for a home NAS.
 Working name: **MyPrintables** (configurable). The layout is inspired by Printables; no proprietary
 logos, fonts, CSS, or icons from printables.com will be copied. Original cube mark:
@@ -50,7 +50,7 @@ Principles:
 - Admin dashboard: users, storage, settings, audit log, DB backup download, comment/collection moderation.
 - First-class CLI in the same binary: `serve`, `migrate status|up`, `admin create|list|verify-email|reset-password`,
   `backup`, and `version`.
-- Single-binary local deployment first. Docker/NAS packaging is explicitly post-v1.
+- Single-binary local deployment with an Alpine Docker image. Compose and NAS-specific packaging remain post-v1.
 - Tests, docs, backup/restore guide.
 
 ### Explicit non-goals (v1)
@@ -59,7 +59,7 @@ Principles:
 - Self-service password reset by email, notifications/digests (email verification itself is in scope).
 - Social graph / follows, makes, remixes, direct messages.
 - STEP/STP/IGES upload, conversion, and preview; G-code preview; multi-tenant; S3/object storage; OIDC/LDAP.
-- Docker image, Compose, multi-arch builds, and NAS-specific reverse-proxy packaging (post-v1).
+- Compose and NAS-specific reverse-proxy packaging (post-v1); Docker image and multi-arch GHCR publishing are implemented.
 - Native mobile apps.
 
 ---
@@ -842,7 +842,7 @@ checklist.
 backup can be restored.
 
 ### Later (post-v1, prioritized with you)
-Docker/Compose/multi-arch NAS packaging; STEP/STP import and STEP→GLB sidecar; makes/remixes; self-service
+Compose/NAS-specific packaging; STEP/STP import and STEP→GLB sidecar; makes/remixes; self-service
 password reset via SMTP; OIDC; resumable uploads; bulk import CLI (`myp import ./folder --owner …`);
 S3 storage; ClamAV; Draco/LOD; dark mode; Prometheus metrics.
 
