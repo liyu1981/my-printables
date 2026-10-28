@@ -9,7 +9,9 @@ import { fileUrl, type Model, type ModelFile } from '../../lib/models'
 import { authAtom } from '../../atoms/auth'
 
 type Background = 'white' | 'canvas' | 'dark'
+const GALLERY_ASPECT = 4 / 3
 type Selection = { x: number; y: number; w: number; h: number }
+type Corner = 'nw' | 'ne' | 'sw' | 'se'
 
 export default function ModelViewer({
   model,
@@ -49,7 +51,7 @@ export default function ModelViewer({
   const [saveError, setSaveError] = useState('')
   const [captureMode, setCaptureMode] = useState(false)
   const [selection, setSelection] = useState<Selection | null>(null)
-  const dragStart = useRef<{ x: number; y: number; mode: 'move' | 'draw'; original?: Selection } | null>(null)
+  const dragStart = useRef<{ x: number; y: number; mode: 'move' | 'draw' | 'resize'; original?: Selection; corner?: Corner } | null>(null)
   const captureModeRef = useRef(false)
   const [auth] = useAtom(authAtom)
 
@@ -223,6 +225,16 @@ export default function ModelViewer({
   function next() { if (!files.length) return; const i = (idx + 1) % files.length; setFileId(files[i].id) }
   function prev() { if (!files.length) return; const i = (idx - 1 + files.length) % files.length; setFileId(files[i].id) }
   function home() { if (currentRef.current && cameraRef.current && controlsRef.current) fitCameraToObject(cameraRef.current, controlsRef.current, currentRef.current) }
+  function zoomBy(factor: number) {
+    const camera = cameraRef.current
+    const controls = controlsRef.current
+    if (!camera || !controls) return
+    const offset = camera.position.clone().sub(controls.target)
+    const distance = THREE.MathUtils.clamp(offset.length() * factor, controls.minDistance, controls.maxDistance)
+    offset.setLength(distance)
+    camera.position.copy(controls.target).add(offset)
+    controls.update()
+  }
   function captureBlob(region?: Selection | null): Promise<Blob | null> {
     const renderer = rendererRef.current
     if (!renderer || !sceneRef.current || !cameraRef.current) return Promise.resolve(null)
@@ -265,10 +277,10 @@ export default function ModelViewer({
     const maxW = rect.width * 0.72
     const maxH = rect.height * 0.72
     let w = maxW
-    let h = w * 0.75
+    let h = w / GALLERY_ASPECT
     if (h > maxH) {
       h = maxH
-      w = h / 0.75
+      w = h * GALLERY_ASPECT
     }
     setSelection({ x: (rect.width - w) / 2, y: (rect.height - h) / 2, w, h })
     setCaptureMode(true)
@@ -286,12 +298,16 @@ export default function ModelViewer({
     const rect = e.currentTarget.getBoundingClientRect()
     const x = clamp(e.clientX - rect.left, 0, rect.width)
     const y = clamp(e.clientY - rect.top, 0, rect.height)
+    const corner = selection ? cornerAt(x, y, selection) : null
+    if (corner && selection) {
+      dragStart.current = { x, y, mode: 'resize', original: { ...selection }, corner }
+      return
+    }
     const inside = !!selection && x >= selection.x && x <= selection.x + selection.w && y >= selection.y && y <= selection.y + selection.h
     if (inside && selection) {
       dragStart.current = { x, y, mode: 'move', original: { ...selection } }
     } else {
-      dragStart.current = { x, y, mode: 'draw' }
-      setSelection({ x, y, w: 0, h: 0 })
+      dragStart.current = null
     }
   }
   function pointerMove(e: React.PointerEvent<HTMLDivElement>) {
@@ -307,8 +323,31 @@ export default function ModelViewer({
         x: clamp(o.x + (x - start.x), 0, rect.width - o.w),
         y: clamp(o.y + (y - start.y), 0, rect.height - o.h),
       })
-    } else {
-      setSelection({ x: Math.min(start.x, x), y: Math.min(start.y, y), w: Math.abs(x - start.x), h: Math.abs(y - start.y) })
+    } else if (start.mode === 'resize' && start.original && start.corner) {
+      const o = start.original
+      const west = start.corner.includes('w')
+      const north = start.corner.includes('n')
+      const ax = west ? o.x + o.w : o.x
+      const ay = north ? o.y + o.h : o.y
+      const dirX = west ? -1 : 1
+      const dirY = north ? -1 : 1
+      const maxWBySide = west ? ax : rect.width - ax
+      const maxHBySide = north ? ay : rect.height - ay
+      const maxW = Math.max(1, Math.min(maxWBySide, maxHBySide * GALLERY_ASPECT))
+      const minW = Math.min(160, maxW)
+      const ox = ax + dirX * o.w
+      const oy = ay + dirY * o.h
+      const outwardX = (x - ox) * dirX
+      const outwardY = (y - oy) * dirY
+      const deltaW = Math.abs(outwardX) >= Math.abs(outwardY) ? outwardX : outwardY * GALLERY_ASPECT
+      const w = clamp(o.w + deltaW, minW, maxW)
+      const h = w / GALLERY_ASPECT
+      setSelection({
+        x: west ? ax - w : ax,
+        y: north ? ay - h : ay,
+        w,
+        h,
+      })
     }
   }
   function pointerUp() {
@@ -355,8 +394,6 @@ export default function ModelViewer({
         <ToolButton label="Reset view" onClick={home}><Home className="h-4 w-4" /></ToolButton>
         <ToolButton label="Auto rotate" active={autoRotate} onClick={() => setAutoRotate((v) => !v)}><RotateCw className="h-4 w-4" /></ToolButton>
         <ToolButton label="Screenshot" onClick={screenshot}><Save className="h-4 w-4" /></ToolButton>
-        <ToolButton label="Zoom in" onClick={() => cameraRef.current?.position.multiplyScalar(0.85)}><Plus className="h-4 w-4" /></ToolButton>
-        <ToolButton label="Zoom out" onClick={() => cameraRef.current?.position.multiplyScalar(1.15)}><Minus className="h-4 w-4" /></ToolButton>
         <ToolButton label="Wireframe" active={wireframe} onClick={() => setWireframe((v) => !v)}><Move3D className="h-4 w-4" /></ToolButton>
         <ToolButton label="Grid" active={grid} onClick={() => setGrid((v) => !v)}><Grid3X3 className="h-4 w-4" /></ToolButton>
         <ToolButton label="Background" onClick={() => setBackground((b) => b === 'white' ? 'canvas' : b === 'canvas' ? 'dark' : 'white')}><Palette className="h-4 w-4" /></ToolButton>
@@ -376,6 +413,12 @@ export default function ModelViewer({
 
       <button onClick={onClose} className="absolute right-4 top-4 z-10 flex h-11 w-11 items-center justify-center border border-line bg-surface text-ink hover:bg-canvas" aria-label="Close 3D viewer"><X className="h-6 w-6" /></button>
 
+      <div className="absolute right-4 top-[4.5rem] z-10 flex w-11 flex-col items-center overflow-hidden border border-line bg-surface shadow-sm" role="group" aria-label="Zoom controls">
+        <button type="button" onClick={() => zoomBy(0.8)} className="flex h-10 w-full items-center justify-center text-ink hover:bg-brand-soft" aria-label="Zoom in" title="Zoom in"><Plus className="h-4 w-4" /></button>
+        <span className="w-full border-y border-line py-0.5 text-center text-[8px] font-bold uppercase tracking-[0.12em] text-muted">Zoom</span>
+        <button type="button" onClick={() => zoomBy(1.25)} className="flex h-10 w-full items-center justify-center text-ink hover:bg-brand-soft" aria-label="Zoom out" title="Zoom out"><Minus className="h-4 w-4" /></button>
+      </div>
+
       {captureMode && (
         <div className="absolute inset-0 z-40">
           <div
@@ -393,17 +436,17 @@ export default function ModelViewer({
                   boxShadow: '0 0 0 9999px rgba(0,0,0,.48)',
                 }}
               >
-                <span className="absolute -left-1 -top-1 h-2 w-2 bg-brand" />
-                <span className="absolute -right-1 -top-1 h-2 w-2 bg-brand" />
-                <span className="absolute -bottom-1 -left-1 h-2 w-2 bg-brand" />
-                <span className="absolute -bottom-1 -right-1 h-2 w-2 bg-brand" />
+                <span className="absolute -left-1.5 -top-1.5 h-3 w-3 cursor-nwse-resize bg-brand" />
+                <span className="absolute -right-1.5 -top-1.5 h-3 w-3 cursor-nesw-resize bg-brand" />
+                <span className="absolute -bottom-1.5 -left-1.5 h-3 w-3 cursor-nesw-resize bg-brand" />
+                <span className="absolute -bottom-1.5 -right-1.5 h-3 w-3 cursor-nwse-resize bg-brand" />
               </div>
             )}
           </div>
           <div className="absolute left-1/2 top-4 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 border border-line bg-surface/95 px-4 py-2.5 shadow-sm">
             <Crop className="h-4 w-4 shrink-0 text-brand" />
-            <span className="hidden text-xs text-muted sm:inline">Drag the 4:3 frame to move it · drag outside to redraw</span>
-            <span className="text-xs text-muted sm:hidden">Drag frame to move</span>
+            <span className="hidden text-xs text-muted sm:inline">Drag frame to move · drag a corner to resize · 4:3 locked</span>
+            <span className="text-xs text-muted sm:hidden">Move · corner resize · 4:3</span>
             <button type="button" onClick={cancelCapture} className="btn-secondary !min-h-8 !px-3 !text-[11px]">Cancel</button>
             <button
               type="button"
@@ -479,6 +522,19 @@ function applyWireframe(root: THREE.Object3D, wireframe: boolean) {
     const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
     for (const mat of mats) if (mat && 'wireframe' in mat) (mat as THREE.MeshStandardMaterial).wireframe = wireframe
   })
+}
+
+function cornerAt(x: number, y: number, s: Selection): Corner | null {
+  const hit = 18
+  const nearLeft = Math.abs(x - s.x) <= hit
+  const nearRight = Math.abs(x - (s.x + s.w)) <= hit
+  const nearTop = Math.abs(y - s.y) <= hit
+  const nearBottom = Math.abs(y - (s.y + s.h)) <= hit
+  if (nearLeft && nearTop) return 'nw'
+  if (nearRight && nearTop) return 'ne'
+  if (nearLeft && nearBottom) return 'sw'
+  if (nearRight && nearBottom) return 'se'
+  return null
 }
 
 function clamp(n: number, min: number, max: number) {
