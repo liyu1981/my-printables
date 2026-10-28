@@ -1,0 +1,5 @@
+packages:
+  - web
+minimumReleaseAgeExclude:
+  - lucide-react@1.62.0
+  - react-router@8.5.1

@@ -8,3 +8,7 @@
 web/node_modules/
 node_modules/
 .DS_Store
+/tmp/
+build-errors.log
+pnpm-debug.log*
+.pnpm-store/

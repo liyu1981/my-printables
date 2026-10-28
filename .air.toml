@@ -1,0 +1,59 @@
+#:schema https://json.schemastore.org/any.json
+
+env_files = []
+root = "."
+testdata_dir = "testdata"
+tmp_dir = "tmp"
+
+[build]
+  args_bin = []
+  bin = "./tmp/myprintables"
+  cmd = "pnpm build:web:dev && pnpm build:go:dev"
+  delay = 700
+  entrypoint = ["./tmp/myprintables", "serve", "--data-dir", "./data"]
+  exclude_dir = [".git", "bin", "data", "doc", "internal/web/dist", "node_modules", "testdata", "tmp", "web/node_modules"]
+  exclude_file = []
+  exclude_regex = ["_test.go"]
+  exclude_unchanged = false
+  follow_symlink = false
+  full_bin = ""
+  ignore_dangerous_root_dir = false
+  include_dir = []
+  include_ext = ["go", "html", "ts", "tsx", "js", "jsx", "css", "json", "svg", "sql"]
+  include_file = ["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "go.mod", "go.sum"]
+  kill_delay = "1s"
+  log = "build-errors.log"
+  poll = false
+  poll_interval = 0
+  post_cmd = []
+  pre_cmd = []
+  rerun = false
+  rerun_delay = 500
+  send_interrupt = true
+  stop_on_error = true
+
+[color]
+  app = ""
+  build = "yellow"
+  main = "magenta"
+  mode = ""
+  runner = "green"
+  watcher = "cyan"
+
+[log]
+  main_only = false
+  silent = false
+  time = true
+
+[misc]
+  clean_on_exit = true
+
+[proxy]
+  app_port = 0
+  app_start_timeout = 0
+  enabled = false
+  proxy_port = 0
+
+[screen]
+  clear_on_rebuild = false
+  keep_scroll = true

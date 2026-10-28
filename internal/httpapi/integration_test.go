@@ -47,7 +47,7 @@ func (c *testClient) request(method, path string, body any) (int, map[string]any
 }
 
 func TestCoreFlow(t *testing.T) {
-	cfg := config.Config{DataDir: t.TempDir(), SiteName: "Test", AppURL: "http://localhost", Port: 8080, AutoMigrate: true}
+	cfg := config.Config{DataDir: t.TempDir(), SiteName: "Test", AppURL: "http://localhost", Port: 8200, AutoMigrate: true}
 	st, err := store.Open(cfg)
 	if err != nil { t.Fatal(err) }
 	defer st.Close()

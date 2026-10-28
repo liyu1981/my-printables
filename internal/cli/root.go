@@ -102,7 +102,7 @@ func newServeCmd() *cobra.Command {
 		RunE:  runServe,
 		Args:  cobra.NoArgs,
 	}
-	cmd.Flags().IntVarP(&portFlag, "port", "p", 0, "HTTP port (default: $PORT or 8080)")
+	cmd.Flags().IntVarP(&portFlag, "port", "p", 0, "HTTP port (default: $PORT or 8200)")
 	return cmd
 }
 

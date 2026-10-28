@@ -89,6 +89,7 @@ Principles:
 | Forms | React Hook Form + Zod | Client validation mirrors Go validation |
 | Markdown | react-markdown + remark-gfm + rehype-sanitize | Descriptions |
 | Tests | Go testing + Vitest/RTL + Playwright | MSW for API mocks |
+| Build | pnpm + package.json + Air | Vite dev/release modes; Air watches frontend + backend |
 | Deploy | Single static binary | `CGO_ENABLED=0`; data under `--data-dir`; Docker/NAS post-v1 |
 
 No Tailwind component library, no CSS-in-JS, no state library beyond Jotai, no external font/CDN at runtime.
@@ -128,7 +129,7 @@ Key decisions:
 - **Authz before bytes.** No static file server for model media. Every media request checks the model's
   visibility and the session, then streams with `http.ServeContent`.
 - **Frontend embedded** into the Go binary (`web/dist` → `internal/web/dist`) for a single deployable artifact.
-  Dev mode runs Vite on 5173 with `/api` proxied to 8080.
+  Dev mode runs Vite on 5173 with `/api` proxied to 8200.
 - **Migrations embedded too.** No runtime migration directory is shipped; the same binary can run them.
 - **One executable, many verbs.** `serve` is the long-running mode; `migrate`, `admin`, `backup`, and
   `version` are short-lived commands sharing the same config, DB, and storage code.
@@ -205,7 +206,10 @@ my-printables/
 │   └── public/            fonts/, brand/cube-mark.svg, favicon.svg
 ├── testdata/              tiny CC0 STL/3MF/OBJ/PLY/GLB fixtures
 ├── doc/                   PLAN.md, DESIGN.md, API.md, DEPLOY.md, BACKUP.md
-├── Makefile
+├── package.json           pnpm scripts
+├── pnpm-workspace.yaml
+├── pnpm-lock.yaml
+├── .air.toml              dev watcher/rebuilder
 ├── .env.example
 ├── AGENTS.md
 ├── go.mod
@@ -695,10 +699,10 @@ Admin UI reuses the same design language: white surface, 1px borders, orange act
 
 ### Env vars
 ```
-PORT=8080
+PORT=8200
 DATA_DIR=./data                 # later: a NAS volume
 SITE_NAME=MyPrintables
-APP_URL=http://localhost:8080  # used in verification links
+APP_URL=http://localhost:8200  # used in verification links
 SECURE_COOKIES=false           # true when served over HTTPS
 TRUSTED_PROXY=                 # e.g. 172.16.0.0/12
 REGISTRATION_ENABLED=true      # open registration by default
@@ -727,7 +731,9 @@ CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/myprintables ./cmd/mypr
 ./bin/myprintables serve
 ```
 
-`make build` wraps this. The result is the only runtime artifact: it contains the API, SPA, and migrations.
+`pnpm build` runs the Vite production build and then the static Go build. The result is the only runtime
+artifact: it contains the API, SPA, and migrations. `pnpm dev` runs Air, which rebuilds frontend/backend and
+restarts the server; development frontend builds keep inline source maps and stay unminified.
 No Node, npm, or external asset directory is needed at runtime.
 
 ### Run
@@ -736,7 +742,7 @@ No Node, npm, or external asset directory is needed at runtime.
 mkdir -p ./data
 ./bin/myprintables migrate up --data-dir ./data
 ./bin/myprintables serve --data-dir ./data
-# open http://localhost:8080 and complete /setup
+# open http://localhost:8200 and complete /setup
 ```
 
 - Operations are the same binary:
@@ -790,10 +796,10 @@ Estimates are dev-days for one developer; they are indicative, not commitments.
 
 ### M0 — Foundation (2 d)
 Single entrypoint + Cobra CLI skeleton, `go.mod`, config/logging, `/healthz`, embedded migrations, embedded
-SPA, Vite + Tailwind + TS strict, design tokens, cube logo + header/footer shell, home skeleton, Makefile,
-CI. No Docker in v1.
+SPA, Vite + Tailwind + TS strict, design tokens, cube logo + header/footer shell, home skeleton, pnpm
+scripts, Air config, CI. No Docker in v1.
 **Done when**: one `go build ./cmd/myprintables` binary embeds the UI and supports `version`, `migrate
-status`, `serve`, and `admin reset-password --help`; `make dev` runs Go+Vite; `go test`/`tsc` pass.
+status`, `serve`, and `admin reset-password --help`; `pnpm dev` runs Air with frontend/backend rebuilds; `go test`/`tsc` pass.
 
 ### M1 — Accounts, email verification & admin (4 d)
 Users/sessions/settings/email-token migrations; `/setup` (or `admin create`); open registration with admin

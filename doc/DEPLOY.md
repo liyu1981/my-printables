@@ -6,10 +6,12 @@ packaging are post-v1.
 ## Build
 
 ```sh
-make build
-# or
-CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/myprintables ./cmd/myprintables
+pnpm install
+pnpm build
 ```
+
+The release build creates `bin/myprintables`. It runs the frontend production build with source maps off,
+then a stripped, static Go build.
 
 ## Run
 
@@ -19,7 +21,7 @@ mkdir -p ./data
 ./bin/myprintables serve --data-dir ./data
 ```
 
-Open <http://localhost:8080> and complete `/setup`. To use the environment file:
+Open <http://localhost:8200> and complete `/setup`. To use the environment file:
 
 ```sh
 set -a; . ./.env; set +a
@@ -64,7 +66,7 @@ User=myprintables
 Group=myprintables
 WorkingDirectory=/srv/myprintables
 Environment=DATA_DIR=/srv/myprintables/data
-Environment=PORT=8080
+Environment=PORT=8200
 Environment=APP_URL=https://models.example.lan
 Environment=SECURE_COOKIES=true
 ExecStart=/srv/myprintables/bin/myprintables serve
@@ -84,7 +86,7 @@ server {
     client_max_body_size 1g;
 
     location / {
-        proxy_pass http://127.0.0.1:8080;
+        proxy_pass http://127.0.0.1:8200;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;

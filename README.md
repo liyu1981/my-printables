@@ -17,14 +17,31 @@ and the administrative CLI.
 - SQLite + plain files in one local data directory
 - Single binary with a full CLI
 
+## Build & run
+
+Requires Go 1.27+, Node 22+, and pnpm.
+
+```sh
+pnpm install
+pnpm build
+pnpm start
+```
+
+Open <http://localhost:8200>.
+
 ## Development
 
 ```sh
-make build
-./bin/myprintables serve --data-dir ./data
+pnpm install
+pnpm dev
 ```
 
-Open <http://localhost:8080>.
+`pnpm dev` runs [Air](https://github.com/air-verse/air). It watches Go, SQL, and frontend source files;
+on every change it rebuilds the frontend in development mode, rebuilds the server with debug symbols, and
+restarts it. Development frontend builds are unminified and include inline source maps. Release builds
+(`pnpm build`) minify the SPA and omit source maps, so browser debug symbols are not shipped.
+
+To run only the Vite dev server: `pnpm dev:web`.
 
 - `doc/PLAN.md` — implementation plan and decisions
 - `doc/DESIGN.md` — design language and component specs

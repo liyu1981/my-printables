@@ -35,10 +35,10 @@ type Config struct {
 
 func Load() (Config, error) {
 	c := Config{
-		Port:                     getInt("PORT", 8080),
+		Port:                     getInt("PORT", 8200),
 		DataDir:                  getString("DATA_DIR", "./data"),
 		SiteName:                 getString("SITE_NAME", "MyPrintables"),
-		AppURL:                   getString("APP_URL", "http://localhost:8080"),
+		AppURL:                   getString("APP_URL", "http://localhost:8200"),
 		SecureCookies:            getBool("SECURE_COOKIES", false),
 		TrustedProxy:             getString("TRUSTED_PROXY", ""),
 		RegistrationEnabled:      getBool("REGISTRATION_ENABLED", true),
