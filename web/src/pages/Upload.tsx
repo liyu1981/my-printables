@@ -1,9 +1,10 @@
 import { FileBox, ImagePlus, Loader2, Trash2, Upload as UploadIcon, X } from 'lucide-react'
 import { useAtom } from 'jotai'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { authAtom } from '../atoms/auth'
 import { ErrorBox } from '../components/Form'
+import { DropZone } from '../components/DropZone'
 import { ApiError, del, formatBytes, patch, post, type User } from '../lib/api'
 import { getCategories, getModel, type Category, type Model } from '../lib/models'
 import { formatOf, renderCover } from '../lib/render-cover'
@@ -35,8 +36,6 @@ export function Upload() {
   const [params] = useSearchParams()
   const navigate = useNavigate()
   const editId = params.get('edit') ?? ''
-  const fileInput = useRef<HTMLInputElement>(null)
-  const imageInput = useRef<HTMLInputElement>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [editing, setEditing] = useState<Model | null>(null)
   const [form, setForm] = useState({ title: '', description: '', categoryId: '', license: '', sourceUrl: '', visibility: 'public', tags: '' })
@@ -45,6 +44,8 @@ export function Upload() {
   const [existingFiles, setExistingFiles] = useState<Model['files']>([])
   const [existingImages, setExistingImages] = useState<Model['images']>([])
   const [error, setError] = useState('')
+  const [modelDropError, setModelDropError] = useState('')
+  const [imageDropError, setImageDropError] = useState('')
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(!!editId)
 
@@ -66,6 +67,32 @@ export function Upload() {
       setExistingImages(model.images ?? [])
     }).catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load model.')).finally(() => setLoading(false))
   }, [editId])
+
+  function addModelFiles(list: File[]) {
+    const allowed = new Set(['stl', '3mf', 'obj', 'ply', 'glb', 'gltf'])
+    const accepted: File[] = []
+    const rejected: string[] = []
+    for (const file of list) {
+      const ext = file.name.toLowerCase().split('.').pop() ?? ''
+      if (allowed.has(ext)) accepted.push(file)
+      else rejected.push(file.name)
+    }
+    if (accepted.length) setFiles((prev) => [...prev, ...accepted.map((file) => ({ file, progress: 0 }))])
+    setModelDropError(rejected.length ? `Unsupported model file${rejected.length === 1 ? '' : 's'}: ${rejected.join(', ')}. Use STL, 3MF, OBJ, PLY, GLB, or GLTF.` : '')
+  }
+
+  function addImageFiles(list: File[]) {
+    const allowed = new Set(['jpg', 'jpeg', 'png', 'webp'])
+    const accepted: File[] = []
+    const rejected: string[] = []
+    for (const file of list) {
+      const ext = file.name.toLowerCase().split('.').pop() ?? ''
+      if (allowed.has(ext)) accepted.push(file)
+      else rejected.push(file.name)
+    }
+    if (accepted.length) setImages((prev) => [...prev, ...accepted.map((file) => ({ file, progress: 0 }))])
+    setImageDropError(rejected.length ? `Unsupported image file${rejected.length === 1 ? '' : 's'}: ${rejected.join(', ')}. Use JPEG, PNG, or WebP.` : '')
+  }
 
   async function submit(e: React.FormEvent, publish: boolean) {
     e.preventDefault()
@@ -176,10 +203,14 @@ export function Upload() {
 
             <section className="card-line p-5">
               <div className="flex items-center justify-between"><h2 className="font-display text-lg font-bold text-ink">3D files</h2><span className="text-[11px] text-muted">STL · 3MF · OBJ · PLY · GLB · GLTF</span></div>
-              <button type="button" onClick={() => fileInput.current?.click()} className="mt-4 flex w-full flex-col items-center border border-dashed border-line bg-canvas px-4 py-8 text-center hover:border-brand">
-                <UploadIcon className="h-7 w-7 text-brand" /><span className="mt-2 text-sm font-semibold text-ink">Choose model files</span><span className="mt-1 text-[11px] text-muted">STEP/STP is not supported in v1.</span>
-              </button>
-              <input ref={fileInput} type="file" multiple accept=".stl,.3mf,.obj,.ply,.glb,.gltf" className="hidden" onChange={(e) => setFiles(Array.from(e.target.files ?? []).map((file) => ({ file, progress: 0 })))} />
+              <DropZone
+                accept=".stl,.3mf,.obj,.ply,.glb,.gltf"
+                title="Choose model files"
+                subtitle="or drag and drop · STL · 3MF · OBJ · PLY · GLB · GLTF"
+                icon={<UploadIcon className="h-7 w-7 text-brand" />}
+                onFiles={addModelFiles}
+              />
+              {modelDropError && <p className="mt-2 text-[11px] text-danger">{modelDropError}</p>}
               {(existingFiles ?? []).map((f) => (
                 <div key={f.id} className="mt-3 flex items-center gap-3 border border-line px-3 py-2"><FileBox className="h-4 w-4 text-brand" /><span className="min-w-0 flex-1 truncate text-xs">{f.filename}</span><span className="text-[10px] text-muted">{formatBytes(f.sizeBytes)}</span><button type="button" onClick={() => removeFile(f.id)} className="text-muted hover:text-danger"><Trash2 className="h-4 w-4" /></button></div>
               ))}
@@ -194,8 +225,14 @@ export function Upload() {
 
             <section className="card-line p-5">
               <div className="flex items-center justify-between"><h2 className="font-display text-lg font-bold text-ink">Images</h2><span className="text-[11px] text-muted">JPEG · PNG · WebP</span></div>
-              <button type="button" onClick={() => imageInput.current?.click()} className="mt-4 flex w-full flex-col items-center border border-dashed border-line bg-canvas px-4 py-6 text-center hover:border-brand"><ImagePlus className="h-6 w-6 text-brand" /><span className="mt-2 text-xs font-semibold text-ink">Add photos or render</span></button>
-              <input ref={imageInput} type="file" multiple accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => setImages(Array.from(e.target.files ?? []).map((file) => ({ file, progress: 0 })))} />
+              <DropZone
+                accept="image/jpeg,image/png,image/webp"
+                title="Add photos or render"
+                subtitle="or drag and drop · JPEG · PNG · WebP"
+                icon={<ImagePlus className="h-6 w-6 text-brand" />}
+                onFiles={addImageFiles}
+              />
+              {imageDropError && <p className="mt-2 text-[11px] text-danger">{imageDropError}</p>}
               <div className="mt-3 flex flex-wrap gap-2">
                 {(existingImages ?? []).map((im) => (
                   <div key={im.id} className="relative"><img src={`/api/models/${editing?.id}/images/${im.id}/thumb`} alt="" className="h-20 w-24 object-cover" /><button type="button" onClick={() => removeImage(im.id)} className="absolute right-1 top-1 bg-ink/80 p-1 text-white"><Trash2 className="h-3 w-3" /></button></div>
