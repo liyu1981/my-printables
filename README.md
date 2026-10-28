@@ -40,7 +40,7 @@ Open <http://localhost:8200>.
 docker pull ghcr.io/liyu1981/my-printables:latest
 
 # or pin a release
-docker pull ghcr.io/liyu1981/my-printables:v0.1.2
+docker pull ghcr.io/liyu1981/my-printables:v0.1.3
 ```
 
 Run the published image with persistent storage:

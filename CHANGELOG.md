@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.1.3 — 2026-10-28
+
+### Features
+
+- Model attachments for PDF, TXT, Markdown, and ZIP files
+- Attachment drag-and-drop/upload with owner/admin permissions and model visibility enforcement
+- Attachment list with inline open and download actions in the model Files tab
+- Signed-in user chip restored in the header, linking to account settings
+
+### Docs / Deploy
+
+- Synology/NAS deployment instructions, including `/data` volume mapping and UID/GID permissions
+- Homepage screenshot added to the README
+
 ## v0.1.2 — 2026-10-28
 
 ### Improvements
