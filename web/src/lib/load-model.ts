@@ -100,5 +100,6 @@ export function fitCameraToObject(camera: THREE.PerspectiveCamera, controls: { t
   camera.far = Math.max(dist * 20, 1000)
   camera.updateProjectionMatrix()
   controls.target.copy(center)
+  camera.lookAt(center)
   controls.update()
 }

@@ -14,6 +14,7 @@ import { Comments } from '../components/Comments'
 import { AddToCollection } from '../components/AddToCollection'
 
 const ModelViewer = lazy(() => import('../components/viewer/ModelViewer'))
+const ModelPreview = lazy(() => import('../components/viewer/ModelPreview'))
 
 export function ModelDetail() {
   const { id = '' } = useParams()
@@ -53,7 +54,7 @@ export function ModelDetail() {
   if (!detail) return <main className="container-page py-16 text-sm text-muted">Loading model…</main>
 
   const m = detail.model
-  const images = m.images ?? []
+  const images = (m.images ?? []).filter((im) => im.kind === 'upload')
   const files = m.files ?? []
   const preview = files.find((f) => f.isPreview) ?? files[0]
   const canEdit = detail.canEdit
@@ -92,16 +93,40 @@ export function ModelDetail() {
           <div className="relative overflow-hidden border border-line bg-canvas">
             {images.length > 0 ? (
               <img src={imageUrl(m.id, images[activeImage >= images.length ? 0 : activeImage].id, 'large')} alt={m.title} className="aspect-[4/3] w-full object-contain" />
+            ) : preview ? (
+              <div className="aspect-[4/3] w-full">
+                <Suspense fallback={<div className="flex h-full items-center justify-center bg-canvas text-xs text-muted">Loading 3D preview…</div>}>
+                  <ModelPreview model={m} file={preview} onOpen={() => { setViewerFileId(preview.id); setViewerOpen(true) }} />
+                </Suspense>
+              </div>
             ) : (
               <div className="flex aspect-[4/3] items-center justify-center bg-[linear-gradient(135deg,#fff1ea,#f5f5f5)]"><Box className="h-20 w-20 text-brand/40" strokeWidth={1} /></div>
             )}
-            {m.status === 'draft' && <span className="absolute left-3 top-3 bg-ink px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white">Draft</span>}
-            <span className="absolute right-3 top-3 rounded-[2px] bg-white/90 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-ink">{visibilityLabel(m.visibility)}</span>
+            {m.status === 'draft' && <span className="absolute left-3 top-3 z-20 bg-ink px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white">Draft</span>}
+            <span className="absolute right-3 top-3 z-20 rounded-[2px] bg-white/90 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-ink">{visibilityLabel(m.visibility)}</span>
           </div>
-          {images.length > 1 && (
+          {(images.length > 0 || preview) && (
             <div className="mt-2 flex gap-2 overflow-x-auto">
-              {images.map((im, i) => (
-                <button key={im.id} onClick={() => setActiveImage(i)} className={`shrink-0 border-2 ${i === activeImage ? 'border-brand' : 'border-transparent'}`}>
+              {images.slice(0, 1).map((im) => (
+                <button key={im.id} onClick={() => setActiveImage(0)} className={`shrink-0 border-2 ${activeImage === 0 ? 'border-brand' : 'border-transparent'}`}>
+                  <img src={imageUrl(m.id, im.id, 'thumb')} alt="" className="h-20 w-28 object-cover" />
+                </button>
+              ))}
+              {preview && (
+                <button
+                  type="button"
+                  onClick={() => { setViewerFileId(preview.id); setViewerOpen(true) }}
+                  className="group relative flex h-20 w-28 shrink-0 flex-col items-center justify-center border-2 border-transparent bg-[radial-gradient(circle_at_50%_30%,#3a2118_0%,#1f2124_62%)] text-white hover:border-brand"
+                  aria-label={`Open 3D viewer for ${preview.filename}`}
+                  title={`View ${preview.filename} in 3D`}
+                >
+                  <Box className="h-7 w-7 text-brand transition-transform group-hover:scale-110" />
+                  <span className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-white/80">View 3D</span>
+                  <span className="absolute right-1 top-1 bg-brand px-1 py-0.5 text-[8px] font-bold uppercase text-white">{preview.format}</span>
+                </button>
+              )}
+              {images.slice(1).map((im, i) => (
+                <button key={im.id} onClick={() => setActiveImage(i + 1)} className={`shrink-0 border-2 ${activeImage === i + 1 ? 'border-brand' : 'border-transparent'}`}>
                   <img src={imageUrl(m.id, im.id, 'thumb')} alt="" className="h-20 w-28 object-cover" />
                 </button>
               ))}
