@@ -14,6 +14,7 @@ import (
 
 	"myprintables/internal/config"
 	"myprintables/internal/email"
+	"myprintables/internal/storage"
 	"myprintables/internal/store"
 	"myprintables/internal/web"
 )
@@ -24,10 +25,11 @@ type Server struct {
 	log     *slog.Logger
 	mail    email.Sender
 	limiter *rateLimiter
+	fs      *storage.Store
 }
 
 func New(cfg *config.Config, st *store.Store, log *slog.Logger) *Server {
-	return &Server{cfg: cfg, st: st, log: log, mail: email.New(*cfg, log), limiter: newRateLimiter()}
+	return &Server{cfg: cfg, st: st, log: log, mail: email.New(*cfg, log), limiter: newRateLimiter(), fs: storage.New(cfg.DataDir)}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -47,6 +49,7 @@ func (s *Server) Handler() http.Handler {
 	r.Route("/api", func(api chi.Router) {
 		api.Get("/site", s.handleSite)
 		s.mountAuth(api)
+		s.mountModels(api)
 		api.NotFound(func(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusNotFound, "not_found", "not found")
 		})

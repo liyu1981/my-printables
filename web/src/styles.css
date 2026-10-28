@@ -128,3 +128,18 @@
   font-size: 14px;
   outline: none;
 }
+
+.prose-printables h1, .prose-printables h2, .prose-printables h3, .prose-printables h4 {
+  margin: 1.5rem 0 0.75rem;
+}
+.prose-printables h2 { font-size: 1.35rem; }
+.prose-printables h3 { font-size: 1.15rem; }
+.prose-printables p { margin: 0 0 1rem; font-size: 0.95rem; line-height: 1.7; }
+.prose-printables ul { margin: 0 0 1rem 1.25rem; list-style: disc; }
+.prose-printables ol { margin: 0 0 1rem 1.25rem; list-style: decimal; }
+.prose-printables li { margin: 0.2rem 0; font-size: 0.95rem; line-height: 1.65; }
+.prose-printables a { color: var(--color-brand-strong); text-decoration: underline; }
+.prose-printables code { background: var(--color-canvas); padding: 0.1rem 0.3rem; font-family: var(--font-mono); font-size: 0.85em; }
+.prose-printables pre { background: var(--color-canvas); border: 1px solid var(--color-line); padding: 1rem; overflow-x: auto; margin: 0 0 1rem; }
+.prose-printables img { max-width: 100%; border: 1px solid var(--color-line); }
+.prose-printables blockquote { border-left: 3px solid var(--color-brand); margin: 0 0 1rem; padding-left: 1rem; color: var(--color-muted); }

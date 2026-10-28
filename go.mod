@@ -3,12 +3,14 @@ module myprintables
 go 1.27.1
 
 require (
+	github.com/disintegration/imaging v1.6.2
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/oklog/ulid/v2 v2.1.2
 	github.com/pressly/goose/v3 v3.29.0
 	github.com/spf13/cobra v1.10.2
 	github.com/wneessen/go-mail v0.8.1
 	golang.org/x/crypto v0.58.0
+	golang.org/x/image v0.47.0
 	golang.org/x/term v0.47.0
 	modernc.org/sqlite v1.61.0
 )

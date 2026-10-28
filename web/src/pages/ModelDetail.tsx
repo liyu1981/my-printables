@@ -1,0 +1,181 @@
+import { Bookmark, Box, Download, Eye, FileBox, Heart, Pencil, Share2, Star, Trash2 } from 'lucide-react'
+import { useAtom } from 'jotai'
+import { useEffect, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import rehypeSanitize from 'rehype-sanitize'
+import { Link, useNavigate, useParams } from 'react-router'
+import { authAtom } from '../atoms/auth'
+import { ApiError, del, formatBytes, formatDate, post } from '../lib/api'
+import { displayCount, fileUrl, getModel, imageUrl, modelUrl, visibilityLabel, type Model, type ModelDetail as Detail } from '../lib/models'
+
+export function ModelDetail() {
+  const { id = '' } = useParams()
+  const [auth] = useAtom(authAtom)
+  const navigate = useNavigate()
+  const [detail, setDetail] = useState<Detail | null>(null)
+  const [error, setError] = useState('')
+  const [activeImage, setActiveImage] = useState(0)
+  const [tab, setTab] = useState<'details' | 'files' | 'related'>('details')
+  const [related, setRelated] = useState<Model[]>([])
+  const [busy, setBusy] = useState('')
+
+  useEffect(() => {
+    setDetail(null)
+    setError('')
+    getModel(id).then((d) => {
+      setDetail(d)
+      setActiveImage(0)
+      fetch(`/api/models/${d.model.id}/related`).then((r) => r.json()).then((x) => setRelated(x.items ?? [])).catch(() => {})
+    }).catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load model.'))
+  }, [id])
+
+  if (error) return <main className="container-page py-16"><div className="border border-danger/30 bg-danger/5 p-6 text-sm text-danger">{error}</div></main>
+  if (!detail) return <main className="container-page py-16 text-sm text-muted">Loading model…</main>
+
+  const m = detail.model
+  const images = m.images ?? []
+  const files = m.files ?? []
+  const preview = files.find((f) => f.isPreview) ?? files[0]
+  const canEdit = detail.canEdit
+  const isAuthed = !!auth.user
+  const csrf = auth.csrf
+
+  async function toggle(kind: 'like' | 'bookmark') {
+    if (!isAuthed) { navigate(`/login?next=${encodeURIComponent(location.pathname)}`); return }
+    setBusy(kind)
+    try {
+      const res = await post<{ liked?: boolean; likeCount?: number; bookmarked?: boolean; bookmarkCount?: number }>(`/api/models/${m.id}/${kind}`, {}, csrf)
+      setDetail((prev) => prev ? { ...prev, model: { ...prev.model, ...(kind === 'like' ? { liked: res.liked!, likeCount: res.likeCount! } : { bookmarked: res.bookmarked!, bookmarkCount: res.bookmarkCount! }) } } : prev)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not update.')
+    } finally { setBusy('') }
+  }
+
+  async function remove() {
+    if (!confirm(`Delete “${m.title}”? This cannot be undone.`)) return
+    try {
+      await del(`/api/models/${m.id}`, csrf)
+      navigate('/models')
+    } catch (err) { setError(err instanceof ApiError ? err.message : 'Could not delete model.') }
+  }
+
+  return (
+    <main className="container-page py-8">
+      <div className="mb-5 flex flex-wrap items-center gap-2 text-[11px] text-muted">
+        <Link to="/models" className="rounded-[2px] border border-line bg-surface px-2 py-1 hover:text-ink">‹ 3D Models</Link>
+        {m.categorySlug && <Link to={`/models?category=${m.categorySlug}`} className="rounded-[2px] border border-line bg-surface px-2 py-1 hover:text-ink">‹ {m.categoryName}</Link>}
+        {m.tags?.map((t) => <Link key={t.id} to={`/tags/${t.slug}`} className="rounded-[2px] border border-line bg-surface px-2 py-1 hover:text-ink">#{t.name}</Link>)}
+      </div>
+
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+        <div>
+          <div className="relative overflow-hidden border border-line bg-canvas">
+            {images.length > 0 ? (
+              <img src={imageUrl(m.id, images[activeImage >= images.length ? 0 : activeImage].id, 'large')} alt={m.title} className="aspect-[4/3] w-full object-contain" />
+            ) : (
+              <div className="flex aspect-[4/3] items-center justify-center bg-[linear-gradient(135deg,#fff1ea,#f5f5f5)]"><Box className="h-20 w-20 text-brand/40" strokeWidth={1} /></div>
+            )}
+            {m.status === 'draft' && <span className="absolute left-3 top-3 bg-ink px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white">Draft</span>}
+            <span className="absolute right-3 top-3 rounded-[2px] bg-white/90 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-ink">{visibilityLabel(m.visibility)}</span>
+          </div>
+          {images.length > 1 && (
+            <div className="mt-2 flex gap-2 overflow-x-auto">
+              {images.map((im, i) => (
+                <button key={im.id} onClick={() => setActiveImage(i)} className={`shrink-0 border-2 ${i === activeImage ? 'border-brand' : 'border-transparent'}`}>
+                  <img src={imageUrl(m.id, im.id, 'thumb')} alt="" className="h-20 w-28 object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="mt-6 flex gap-6 overflow-x-auto border-b border-line text-sm font-bold text-muted">
+            {([['details', 'Details'], ['files', `Files (${files.length})`], ['related', 'Related']] as const).map(([key, label]) => (
+              <button key={key} onClick={() => setTab(key)} className={`whitespace-nowrap border-b-2 pb-3 ${tab === key ? 'border-brand text-ink' : 'border-transparent hover:text-ink'}`}>{label}</button>
+            ))}
+          </div>
+
+          {tab === 'details' && (
+            <div className="max-w-[740px] py-6 text-sm leading-6 text-text">
+              {m.description ? (
+                <div className="prose-printables">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>{m.description}</ReactMarkdown>
+                </div>
+              ) : <p className="text-muted">No description yet.</p>}
+              {m.tags && m.tags.length > 0 && (
+                <div className="mt-8 border-t border-line pt-5">
+                  <h2 className="font-display text-lg font-bold text-ink">Tags</h2>
+                  <div className="mt-3 flex flex-wrap gap-2">{m.tags.map((t) => <Link key={t.id} to={`/tags/${t.slug}`} className="border border-line bg-canvas px-2 py-1 text-xs text-text hover:border-line-strong">#{t.name}</Link>)}</div>
+                </div>
+              )}
+              {m.license && <div className="mt-8 border-t border-line pt-5 text-xs"><span className="text-muted">License:</span> <span className="font-semibold text-ink">{m.license}</span></div>}
+              {m.sourceUrl && <div className="mt-2 text-xs"><span className="text-muted">Source:</span> <a href={m.sourceUrl} target="_blank" rel="noreferrer" className="text-brand-strong hover:underline">{m.sourceUrl}</a></div>}
+            </div>
+          )}
+
+          {tab === 'files' && (
+            <div className="py-6">
+              <div className="border border-line bg-surface">
+                {files.map((f) => (
+                  <div key={f.id} className="flex items-center gap-3 border-b border-line px-3 py-3 last:border-0">
+                    <FileBox className="h-5 w-5 text-brand" />
+                    <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-ink">{f.filename}</p><p className="text-[11px] text-muted">{f.format.toUpperCase()} · {formatBytes(f.sizeBytes)}</p></div>
+                    {f.isPreview && <span className="text-[10px] font-bold uppercase text-brand-strong">Preview</span>}
+                    <a href={fileUrl(m.id, f.id, true)} className="btn-secondary !min-h-8 !px-2 !text-[11px]"><Download className="h-3.5 w-3.5" /> Download</a>
+                  </div>
+                ))}
+                {files.length === 0 && <p className="p-6 text-sm text-muted">No files uploaded yet.</p>}
+              </div>
+            </div>
+          )}
+
+          {tab === 'related' && (
+            <div className="grid gap-4 py-6 sm:grid-cols-2">
+              {related.map((r) => <Link key={r.id} to={modelUrl(r)} className="card-line flex gap-3 p-3 hover:border-line-strong">
+                {r.coverImageId ? <img src={imageUrl(r.id, r.coverImageId, 'thumb')} alt="" className="h-16 w-20 object-cover" /> : <div className="flex h-16 w-20 items-center justify-center bg-canvas"><Box className="h-6 w-6 text-line-strong" /></div>}
+                <div><p className="line-clamp-2 text-sm font-semibold text-ink">{r.title}</p><p className="mt-1 text-[11px] text-muted">{r.ownerName}</p></div>
+              </Link>)}
+              {related.length === 0 && <p className="text-sm text-muted">No related models.</p>}
+            </div>
+          )}
+        </div>
+
+        <aside className="h-fit lg:sticky lg:top-28">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="font-display text-3xl font-bold leading-tight text-ink">{m.title}</h1>
+            <span className="shrink-0 text-[11px] text-muted">{formatDate(m.publishedAt)}</span>
+          </div>
+          <div className="mt-2 flex items-center gap-3 text-xs text-muted">
+            <span className="flex items-center gap-1"><Star className={`h-4 w-4 ${m.ratingCount ? 'fill-current text-star' : ''}`} /> {m.ratingCount ? m.ratingAvg.toFixed(1) : 'No ratings'} {m.ratingCount > 0 && <span>({displayCount(m.ratingCount)})</span>}</span>
+            <span>·</span><span>{m.categoryName || 'Uncategorized'}</span>
+          </div>
+          <div className="mt-5 flex items-center gap-3 border-y border-line py-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-soft text-xs font-bold text-brand-strong">{m.ownerName.slice(0, 1).toUpperCase()}</span>
+            <div className="min-w-0"><Link to={`/u/${m.ownerUsername}`} className="block truncate text-sm font-bold text-ink hover:underline">{m.ownerName}</Link><p className="text-[11px] text-muted">@{m.ownerUsername}</p></div>
+            {canEdit && <Link to={`/upload?edit=${m.id}`} className="ml-auto flex items-center gap-1 text-xs font-semibold text-brand-strong"><Pencil className="h-3.5 w-3.5" /> Edit</Link>}
+          </div>
+          <p className="mt-4 line-clamp-3 text-sm leading-6 text-text">{m.description.replace(/[#*_`>-]/g, '').slice(0, 260) || 'No description yet.'}</p>
+          <div className="mt-5 grid gap-2">
+            {preview ? (
+              <a href={fileUrl(m.id, preview.id, true)} className="btn-primary w-full"><Download className="h-4 w-4" /> Download</a>
+            ) : <span className="btn-secondary w-full opacity-60">No file available</span>}
+            <button className="btn-secondary w-full" disabled title="3D preview arrives in M3"><Box className="h-4 w-4" /> View in 3D</button>
+          </div>
+          <div className="mt-3 grid grid-cols-3 border border-line bg-surface text-xs">
+            <button onClick={() => toggle('like')} disabled={busy === 'like'} className={`flex items-center justify-center gap-1 border-r border-line py-3 font-semibold hover:bg-canvas ${m.liked ? 'text-brand-strong' : 'text-text'}`}><Heart className={`h-4 w-4 ${m.liked ? 'fill-current' : ''}`} /> {displayCount(m.likeCount)}</button>
+            <button onClick={() => toggle('bookmark')} disabled={busy === 'bookmark'} className={`flex items-center justify-center gap-1 border-r border-line py-3 font-semibold hover:bg-canvas ${m.bookmarked ? 'text-brand-strong' : 'text-text'}`}><Bookmark className={`h-4 w-4 ${m.bookmarked ? 'fill-current' : ''}`} /> Save</button>
+            <button onClick={() => navigator.clipboard?.writeText(location.href)} className="flex items-center justify-center gap-1 py-3 font-semibold text-text hover:bg-canvas"><Share2 className="h-4 w-4" /> Share</button>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-4 text-[11px] text-muted">
+            <span className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" /> {displayCount(m.likeCount)}</span>
+            <span className="flex items-center gap-1"><Download className="h-3.5 w-3.5" /> {displayCount(m.downloadCount)}</span>
+            <span className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" /> {displayCount(m.viewCount)}</span>
+            <span className="ml-auto">{files.length} file{files.length === 1 ? '' : 's'} · {m.fileFormats ? m.fileFormats.toUpperCase().split(',').join(', ') : '—'}</span>
+          </div>
+          {canEdit && (
+            <button onClick={remove} className="mt-4 flex items-center gap-1 text-xs font-semibold text-danger hover:underline"><Trash2 className="h-3.5 w-3.5" /> Delete model</button>
+          )}
+        </aside>
+      </div>
+    </main>
+  )
+}

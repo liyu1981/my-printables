@@ -9,10 +9,15 @@ import { Admin } from './pages/Admin'
 import { Browse } from './pages/Browse'
 import { Home } from './pages/Home'
 import { Login } from './pages/Login'
+import { ModelDetail } from './pages/ModelDetail'
 import { Placeholder } from './pages/Placeholder'
+import { Profile } from './pages/Profile'
 import { Register } from './pages/Register'
 import { Settings } from './pages/Settings'
 import { Setup } from './pages/Setup'
+import { TagPage } from './pages/TagPage'
+import { Tags } from './pages/Tags'
+import { Upload } from './pages/Upload'
 import { VerifyEmail } from './pages/VerifyEmail'
 
 function ScrollToTop() {
@@ -47,6 +52,8 @@ export function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/models" element={<Browse />} />
+          <Route path="/model/:id/:slug" element={<ModelDetail />} />
+          <Route path="/u/:username" element={<Profile />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/setup" element={<Setup />} />
@@ -54,8 +61,9 @@ export function App() {
           <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
           <Route path="/admin" element={<RequireAuth admin><Admin /></RequireAuth>} />
           <Route path="/collections" element={<Placeholder title="Collections" note="Collections arrive in M4." />} />
-          <Route path="/tags" element={<Placeholder title="Tags" note="The tag directory arrives in M2." />} />
-          <Route path="/upload" element={<RequireAuth><Placeholder title="Upload" note="Upload arrives in M2." /></RequireAuth>} />
+          <Route path="/tags" element={<Tags />} />
+          <Route path="/tags/:slug" element={<TagPage />} />
+          <Route path="/upload" element={<RequireAuth><Upload /></RequireAuth>} />
           <Route path="*" element={<Placeholder title="Page not found" note="The page you requested does not exist." />} />
         </Routes>
       </div>
