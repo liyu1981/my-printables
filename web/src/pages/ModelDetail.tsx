@@ -1,16 +1,19 @@
 import { Bookmark, Box, Download, Eye, FileBox, Heart, Pencil, Share2, Star, Trash2 } from 'lucide-react'
 import { useAtom } from 'jotai'
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { authAtom } from '../atoms/auth'
 import { ApiError, del, formatBytes, formatDate, post } from '../lib/api'
 import { displayCount, fileUrl, getModel, imageUrl, modelUrl, visibilityLabel, type Model, type ModelDetail as Detail } from '../lib/models'
 
+const ModelViewer = lazy(() => import('../components/viewer/ModelViewer'))
+
 export function ModelDetail() {
   const { id = '' } = useParams()
+  const [params] = useSearchParams()
   const [auth] = useAtom(authAtom)
   const navigate = useNavigate()
   const [detail, setDetail] = useState<Detail | null>(null)
@@ -19,6 +22,8 @@ export function ModelDetail() {
   const [tab, setTab] = useState<'details' | 'files' | 'related'>('details')
   const [related, setRelated] = useState<Model[]>([])
   const [busy, setBusy] = useState('')
+  const [viewerOpen, setViewerOpen] = useState(false)
+  const [viewerFileId, setViewerFileId] = useState('')
 
   useEffect(() => {
     setDetail(null)
@@ -29,6 +34,13 @@ export function ModelDetail() {
       fetch(`/api/models/${d.model.id}/related`).then((r) => r.json()).then((x) => setRelated(x.items ?? [])).catch(() => {})
     }).catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load model.'))
   }, [id])
+
+  useEffect(() => {
+    if (params.get('viewer') !== '1' || !detail) return
+    const list = detail.model.files ?? []
+    const first = list.find((f) => f.isPreview) ?? list[0]
+    if (first) { setViewerFileId(first.id); setViewerOpen(true) }
+  }, [detail, params])
 
   if (error) return <main className="container-page py-16"><div className="border border-danger/30 bg-danger/5 p-6 text-sm text-danger">{error}</div></main>
   if (!detail) return <main className="container-page py-16 text-sm text-muted">Loading model…</main>
@@ -120,6 +132,7 @@ export function ModelDetail() {
                     <FileBox className="h-5 w-5 text-brand" />
                     <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-ink">{f.filename}</p><p className="text-[11px] text-muted">{f.format.toUpperCase()} · {formatBytes(f.sizeBytes)}</p></div>
                     {f.isPreview && <span className="text-[10px] font-bold uppercase text-brand-strong">Preview</span>}
+                    <button onClick={() => { setViewerFileId(f.id); setViewerOpen(true) }} className="btn-secondary !min-h-8 !px-2 !text-[11px]"><Box className="h-3.5 w-3.5" /> View 3D</button>
                     <a href={fileUrl(m.id, f.id, true)} className="btn-secondary !min-h-8 !px-2 !text-[11px]"><Download className="h-3.5 w-3.5" /> Download</a>
                   </div>
                 ))}
@@ -158,7 +171,7 @@ export function ModelDetail() {
             {preview ? (
               <a href={fileUrl(m.id, preview.id, true)} className="btn-primary w-full"><Download className="h-4 w-4" /> Download</a>
             ) : <span className="btn-secondary w-full opacity-60">No file available</span>}
-            <button className="btn-secondary w-full" disabled title="3D preview arrives in M3"><Box className="h-4 w-4" /> View in 3D</button>
+            <button onClick={() => { if (preview) { setViewerFileId(preview.id); setViewerOpen(true) } }} className="btn-secondary w-full" disabled={!preview}><Box className="h-4 w-4" /> View in 3D</button>
           </div>
           <div className="mt-3 grid grid-cols-3 border border-line bg-surface text-xs">
             <button onClick={() => toggle('like')} disabled={busy === 'like'} className={`flex items-center justify-center gap-1 border-r border-line py-3 font-semibold hover:bg-canvas ${m.liked ? 'text-brand-strong' : 'text-text'}`}><Heart className={`h-4 w-4 ${m.liked ? 'fill-current' : ''}`} /> {displayCount(m.likeCount)}</button>
@@ -176,6 +189,11 @@ export function ModelDetail() {
           )}
         </aside>
       </div>
+      {viewerOpen && (
+        <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-white text-sm text-muted">Loading 3D viewer…</div>}>
+          <ModelViewer model={m} files={files} initialFileId={viewerFileId} onClose={() => setViewerOpen(false)} />
+        </Suspense>
+      )}
     </main>
   )
 }

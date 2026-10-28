@@ -6,6 +6,7 @@ import { authAtom } from '../atoms/auth'
 import { ErrorBox } from '../components/Form'
 import { ApiError, del, formatBytes, patch, post, type User } from '../lib/api'
 import { getCategories, getModel, type Category, type Model } from '../lib/models'
+import { formatOf, renderCover } from '../lib/render-cover'
 
 type UploadState = { file: File; progress: number; error?: string }
 
@@ -111,6 +112,15 @@ export function Upload() {
         } catch (err) {
           setImages((prev) => prev.map((f, j) => j === i ? { ...f, error: err instanceof Error ? err.message : 'Upload failed' } : f))
           throw err
+        }
+      }
+      const hasImages = (existingImages?.length ?? 0) > 0 || images.length > 0
+      if (!hasImages && files.length > 0) {
+        try {
+          const cover = await renderCover(files[0].file, formatOf(files[0].file.name))
+          await uploadWithProgress(`/api/models/${model.id}/images?kind=render`, new File([cover], 'cover.png', { type: 'image/png' }), auth.csrf, () => {})
+        } catch {
+          // A cover can be added later; don't fail the upload.
         }
       }
       if (publish && (!editing || editing.status !== 'published')) {
