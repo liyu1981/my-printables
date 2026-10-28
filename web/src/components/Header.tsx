@@ -1,4 +1,4 @@
-import { Search, User, Menu, X, Shield, LogOut, Settings } from 'lucide-react'
+import { Search, User, Menu, X, Shield, LogOut } from 'lucide-react'
 import { useState } from 'react'
 import { useAtom } from 'jotai'
 import { Link, NavLink, useNavigate } from 'react-router'
@@ -75,8 +75,18 @@ export function Header() {
               </Link>
             )}
             {auth.user && (
-              <Link to="/settings" className="hidden rounded-[2px] p-2 text-muted hover:text-ink sm:block" aria-label="Settings">
-                <Settings className="h-5 w-5" />
+              <Link
+                to="/settings"
+                className="flex min-w-0 items-center gap-2 rounded-[2px] px-1.5 py-1 text-ink hover:bg-canvas"
+                aria-label={`Signed in as ${auth.user.displayName}. Account settings`}
+                title={`@${auth.user.username}`}
+              >
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[11px] font-bold text-brand-strong">
+                  {auth.user.displayName.slice(0, 1).toUpperCase()}
+                </span>
+                <span className="hidden max-w-[130px] truncate text-sm font-medium text-ink lg:inline">
+                  {auth.user.displayName}
+                </span>
               </Link>
             )}
             <Link to="/upload" className="btn-outline hidden sm:inline-flex">

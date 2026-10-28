@@ -3,6 +3,8 @@
 Self-hosted, Printables-inspired 3D model library. One Go binary embeds the API, React SPA, migrations,
 and the administrative CLI.
 
+![MyPrintables homepage](https://raw.githubusercontent.com/liyu1981/my-printables/master/assets/myprintables_homepage.png)
+
 ## Features (v1)
 
 - Open registration with optional email verification (SMTP, off by default)
