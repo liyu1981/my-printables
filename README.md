@@ -31,6 +31,33 @@ Open <http://localhost:8200>.
 
 ## Docker
 
+### Pull from GHCR
+
+```sh
+docker pull ghcr.io/liyu1981/my-printables:latest
+
+# or pin a release
+docker pull ghcr.io/liyu1981/my-printables:v0.1.0
+```
+
+Run the published image with persistent storage:
+
+```sh
+docker run -d \
+  --name myprintables \
+  -p 8200:8200 \
+  -v myprintables_data:/data \
+  ghcr.io/liyu1981/my-printables:latest
+```
+
+If the GHCR package is private, log in first:
+
+```sh
+echo "$GHCR_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
+```
+
+### Build locally
+
 ```sh
 docker build -t myprintables .
 docker run -d --name myprintables -p 8200:8200 -v myprintables_data:/data myprintables
@@ -44,7 +71,7 @@ sudo chown -R 10001:10001 ./data
 docker run -d --name myprintables -p 8200:8200 -v "$PWD/data:/data" myprintables
 ```
 
-GitHub Actions publishes `ghcr.io/<owner>/<repo>` images for `v*` tags.
+The release workflow publishes multi-arch images for `v*` tags.
 
 ## Development
 
