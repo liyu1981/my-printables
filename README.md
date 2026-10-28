@@ -39,7 +39,7 @@ Open <http://localhost:8200>.
 docker pull ghcr.io/liyu1981/my-printables:latest
 
 # or pin a release
-docker pull ghcr.io/liyu1981/my-printables:v0.1.0
+docker pull ghcr.io/liyu1981/my-printables:v0.1.2
 ```
 
 Run the published image with persistent storage:
@@ -74,6 +74,46 @@ docker run -d --name myprintables -p 8200:8200 -v "$PWD/data:/data" myprintables
 ```
 
 The release workflow publishes multi-arch images for `v*` tags.
+
+### NAS / Synology
+
+The container always stores its database, media, temp files, and backups under **`/data`**. Map a local
+NAS shared folder to that path.
+
+Example with a Synology shared folder at `/volume1/docker/myprintables`:
+
+```sh
+sudo mkdir -p /volume1/docker/myprintables
+sudo chown -R 10001:10001 /volume1/docker/myprintables
+sudo chmod -R u+rwX,g+rwX /volume1/docker/myprintables
+
+docker run -d \
+  --name myprintables \
+  --restart unless-stopped \
+  -p 8200:8200 \
+  -v /volume1/docker/myprintables:/data \
+  ghcr.io/liyu1981/my-printables:latest
+```
+
+In Synology **Container Manager**, use the same mapping:
+
+- Host folder: `/volume1/docker/myprintables`
+- Container folder: `/data`
+- Port: `8200` → `8200`
+- Restart policy: `unless-stopped`
+
+Important:
+
+- The container runs as UID/GID **`10001`**. The mapped folder must be readable and writable by that
+  user, otherwise SQLite and uploads will fail.
+- Use a **local NAS shared folder** for `/data`, not an SMB/NFS network share. SQLite on network
+  filesystems can corrupt data.
+- If the container logs permission errors, fix ownership on the host and restart it:
+  ```sh
+  sudo chown -R 10001:10001 /volume1/docker/myprintables
+  docker restart myprintables
+  ```
+- Back up the mapped folder regularly. It contains `app.db`, `media/`, and `backups/`.
 
 ## Development
 
