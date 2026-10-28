@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="MyPrintables">
+  <defs>
+    <mask id="bore">
+      <rect width="64" height="64" fill="#fff"/>
+      <circle cx="45.5" cy="44.25" r="5.25" fill="#000"/>
+    </mask>
+  </defs>
+  <g mask="url(#bore)">
+    <path d="M32 4 58.5 18.75 32 33.5 5.5 18.75Z" fill="#FA6831"/>
+    <path d="M5.5 18.75 32 33.5V59.5L5.5 44.75Z" fill="#D9501F"/>
+    <path d="M32 33.5 58.5 18.75V44.75L32 59.5Z" fill="#B93A0B"/>
+  </g>
+  <circle cx="45.5" cy="44.25" r="5.25" fill="none" stroke="#7A2507" stroke-opacity=".55" stroke-width="1.2"/>
+</svg>
