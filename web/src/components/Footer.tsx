@@ -34,16 +34,14 @@ export function Footer() {
         <div>
           <p className="mb-3 text-xs font-bold uppercase tracking-[0.12em] text-ink">About</p>
           <div className="flex flex-col gap-2 text-sm text-text">
-            <span>Single binary</span>
-            <span>SQLite + local files</span>
+            <a href="https://github.com/liyu1981/my-printables" target="_blank" rel="noopener noreferrer" className="hover:text-brand-strong">
+              GitHub
+            </a>
+            <a href="https://www.reddit.com/r/myprintables/" target="_blank" rel="noopener noreferrer" className="hover:text-brand-strong">
+              Reddit
+            </a>
             <span className="text-muted">v{settings.version}</span>
           </div>
-        </div>
-      </div>
-      <div className="border-t border-line">
-        <div className="container-page flex flex-wrap items-center justify-between gap-2 py-4 text-[11px] text-muted">
-          <span>{settings.siteName} · self-hosted</span>
-          <span>Built for a home NAS</span>
         </div>
       </div>
     </footer>
