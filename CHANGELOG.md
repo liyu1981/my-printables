@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.1.1 — 2026-10-28
+
+### Improvements
+
+- Drag-and-drop support for 3D files and gallery images in the upload page
+- Inline interactive 3D preview when a model has no uploaded gallery images
+- Save a selected 4:3 region from the fullscreen 3D viewer directly to the gallery
+- Gallery captures can be repositioned by dragging the capture frame
+- Model card and collection tile images now fit instead of being cropped
+- GitHub and Reddit links added to the footer
+- GHCR pull and Docker deployment instructions added to the README
+
 ## v0.1.0 — 2026-10-28
 
 Initial release.
