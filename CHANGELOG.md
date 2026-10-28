@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.1.2 — 2026-10-28
+
+### Improvements
+
+- Merged the utility header into a single MyPrintables header bar
+- Centered the search bar and added a mobile search row
+- Locked the gallery capture frame to a 4:3 aspect ratio while moving or resizing
+- Added corner handles for resizing the capture frame
+- Added explicit zoom in/out controls to the 3D viewer
+
 ## v0.1.1 — 2026-10-28
 
 ### Improvements
