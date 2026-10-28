@@ -1,14 +1,18 @@
+import { useAtom } from 'jotai'
 import { Link } from 'react-router'
+import { authAtom } from '../atoms/auth'
 import { Logo } from './Logo'
 
 export function Footer() {
+  const [auth] = useAtom(authAtom)
+  const settings = auth.settings
   return (
     <footer className="mt-16 border-t border-line bg-surface">
       <div className="container-page grid grid-cols-2 gap-8 py-12 md:grid-cols-4">
         <div className="col-span-2 md:col-span-1">
           <Logo />
           <p className="mt-3 max-w-[220px] text-xs leading-5 text-muted">
-            A self-hosted 3D model library for your home. Your files, your rules.
+            {settings.footerText || 'A self-hosted 3D model library for your home. Your files, your rules.'}
           </p>
         </div>
         <div>
@@ -32,13 +36,13 @@ export function Footer() {
           <div className="flex flex-col gap-2 text-sm text-text">
             <span>Single binary</span>
             <span>SQLite + local files</span>
-            <span className="text-muted">v0.1</span>
+            <span className="text-muted">v{settings.version}</span>
           </div>
         </div>
       </div>
       <div className="border-t border-line">
         <div className="container-page flex flex-wrap items-center justify-between gap-2 py-4 text-[11px] text-muted">
-          <span>MyPrintables · self-hosted</span>
+          <span>{settings.siteName} · self-hosted</span>
           <span>Built for a home NAS</span>
         </div>
       </div>

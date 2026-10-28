@@ -25,6 +25,7 @@ func (s *Server) mountModels(api chi.Router) {
 	api.Get("/users/{username}", s.handleProfile)
 	api.Get("/users/{username}/models", s.handleProfileModels)
 	api.Get("/stats", s.handleStats)
+	api.Get("/creators", s.handleCreators)
 
 	api.Group(func(p chi.Router) {
 		p.Use(s.requireAuth)
@@ -410,6 +411,15 @@ func (s *Server) handleProfileModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, res)
+}
+
+func (s *Server) handleCreators(w http.ResponseWriter, r *http.Request) {
+	items, err := s.st.TopCreators(r.Context(), intQuery(r.URL.Query().Get("limit"), 6))
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal", "Could not load creators.")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {

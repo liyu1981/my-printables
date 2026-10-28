@@ -1,9 +1,13 @@
 import { ArrowRight, Box, Upload } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
+import { CollectionCard } from '../components/CollectionCard'
 import { ModelCard } from '../components/ModelCard'
 import { api } from '../lib/api'
-import { getModels, type Category, type Model, type ModelPage } from '../lib/models'
+import { getModels, type Category, type Model } from '../lib/models'
+import { getCollections, type Collection } from '../lib/social'
+
+type Creator = { username: string; displayName: string; bio: string; modelCount: number; downloads: number; likes: number }
 
 type Stats = { models: number; users: number; downloads: number; files: number }
 
@@ -11,6 +15,8 @@ export function Home() {
   const [featured, setFeatured] = useState<Model[]>([])
   const [latest, setLatest] = useState<Model[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [collections, setCollections] = useState<Collection[]>([])
+  const [creators, setCreators] = useState<Creator[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [loaded, setLoaded] = useState(false)
 
@@ -20,11 +26,15 @@ export function Home() {
       getModels('sort=newest&perPage=8'),
       api<{ items: Category[] }>('/api/categories'),
       api<Stats>('/api/stats'),
-    ]).then(([f, l, c, s]) => {
+      getCollections('perPage=4'),
+      api<{ items: Creator[] }>('/api/creators?limit=6'),
+    ]).then(([f, l, c, s, col, cr]) => {
       setFeatured(f.items)
       setLatest(l.items)
       setCategories(c.items)
       setStats(s)
+      setCollections(col.items)
+      setCreators(cr.items)
     }).catch(() => {}).finally(() => setLoaded(true))
   }, [])
 
@@ -79,6 +89,15 @@ export function Home() {
         )}
       </section>
 
+      {collections.length > 0 && (
+        <section className="border-y border-line bg-surface">
+          <div className="container-page py-12 md:py-16">
+            <div className="mb-6 flex items-end justify-between"><h2 className="text-2xl font-bold">Featured collections</h2><Link to="/collections" className="text-sm font-semibold text-brand-strong hover:underline">All collections</Link></div>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{collections.map((c) => <CollectionCard key={c.id} collection={c} />)}</div>
+          </div>
+        </section>
+      )}
+
       <section className="border-y border-line bg-surface">
         <div className="container-page py-12 md:py-16">
           <div className="flex items-end justify-between">
@@ -104,6 +123,20 @@ export function Home() {
             <Link to="/models?sort=newest" className="text-sm font-semibold text-brand-strong hover:underline">View all</Link>
           </div>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{latest.slice(0, 8).map((m) => <ModelCard key={m.id} model={m} />)}</div>
+        </section>
+      )}
+
+      {creators.length > 0 && (
+        <section className="container-page py-12 md:py-16">
+          <div className="mb-6 flex items-end justify-between"><h2 className="text-2xl font-bold">Top creators</h2><Link to="/models" className="text-sm font-semibold text-brand-strong hover:underline">Explore models</Link></div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            {creators.map((c) => (
+              <Link key={c.username} to={`/u/${c.username}`} className="card-line flex items-center gap-3 p-3 hover:border-line-strong">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-soft font-display text-sm font-bold text-brand-strong">{c.displayName.slice(0, 1).toUpperCase()}</span>
+                <span className="min-w-0"><span className="block truncate text-xs font-semibold text-ink">{c.displayName}</span><span className="block text-[10px] text-muted">{c.modelCount} models · {c.downloads} downloads</span></span>
+              </Link>
+            ))}
+          </div>
         </section>
       )}
 

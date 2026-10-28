@@ -748,3 +748,39 @@ func nullIfEmpty(s string) any {
 	}
 	return s
 }
+
+type Creator struct {
+	Username    string `json:"username"`
+	DisplayName string `json:"displayName"`
+	Bio         string `json:"bio"`
+	ModelCount  int64  `json:"modelCount"`
+	Downloads   int64  `json:"downloads"`
+	Likes       int64  `json:"likes"`
+}
+
+func (s *Store) TopCreators(ctx context.Context, limit int) ([]Creator, error) {
+	if limit < 1 || limit > 24 {
+		limit = 6
+	}
+	rows, err := s.DB.QueryContext(ctx, `SELECT u.username,u.display_name,u.bio,COUNT(m.id),
+		COALESCE(SUM(m.download_count),0),COALESCE(SUM(m.like_count),0)
+		FROM users u JOIN models m ON m.owner_id=u.id
+		WHERE u.is_active=1 AND m.status='published' AND m.visibility='public'
+		GROUP BY u.id ORDER BY COUNT(m.id) DESC, SUM(m.like_count) DESC LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Creator
+	for rows.Next() {
+		var c Creator
+		if err := rows.Scan(&c.Username, &c.DisplayName, &c.Bio, &c.ModelCount, &c.Downloads, &c.Likes); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	if out == nil {
+		out = []Creator{}
+	}
+	return out, rows.Err()
+}
