@@ -13,18 +13,21 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"myprintables/internal/config"
+	"myprintables/internal/email"
 	"myprintables/internal/store"
 	"myprintables/internal/web"
 )
 
 type Server struct {
-	cfg *config.Config
-	st  *store.Store
-	log *slog.Logger
+	cfg     *config.Config
+	st      *store.Store
+	log     *slog.Logger
+	mail    email.Sender
+	limiter *rateLimiter
 }
 
 func New(cfg *config.Config, st *store.Store, log *slog.Logger) *Server {
-	return &Server{cfg: cfg, st: st, log: log}
+	return &Server{cfg: cfg, st: st, log: log, mail: email.New(*cfg, log), limiter: newRateLimiter()}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -32,6 +35,8 @@ func (s *Server) Handler() http.Handler {
 	r.Use(s.securityHeaders)
 	r.Use(s.requestLogger)
 	r.Use(s.recoverer)
+	r.Use(s.sameOrigin)
+	r.Use(s.optionalAuth)
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		if err := s.st.DB.PingContext(r.Context()); err != nil {
 			writeErr(w, http.StatusServiceUnavailable, "db_unavailable", "database unavailable")
@@ -41,6 +46,7 @@ func (s *Server) Handler() http.Handler {
 	})
 	r.Route("/api", func(api chi.Router) {
 		api.Get("/site", s.handleSite)
+		s.mountAuth(api)
 		api.NotFound(func(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusNotFound, "not_found", "not found")
 		})

@@ -1,7 +1,10 @@
-import { Search, Upload, User, Menu, X, Shield } from 'lucide-react'
+import { Search, Upload, User, Menu, X, Shield, LogOut, Settings } from 'lucide-react'
 import { useState } from 'react'
+import { useAtom } from 'jotai'
 import { Link, NavLink, useNavigate } from 'react-router'
 import { cn } from '../lib/cn'
+import { authAtom } from '../atoms/auth'
+import { post } from '../lib/api'
 import { Logo } from './Logo'
 
 const nav = [
@@ -13,6 +16,7 @@ const nav = [
 export function Header() {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
+  const [auth, setAuth] = useAtom(authAtom)
   const navigate = useNavigate()
 
   function submit(e: React.FormEvent) {
@@ -41,9 +45,18 @@ export function Header() {
               <Upload className="h-5 w-5" />
             </Link>
             <span className="h-5 w-px bg-line" />
-            <Link to="/login" className="flex items-center gap-1.5 px-2 py-1 text-sm font-medium text-ink">
-              <User className="h-5 w-5" /> Login
-            </Link>
+            {auth.user ? (
+              <span className="flex items-center gap-1.5 px-2 py-1 text-sm font-medium text-ink">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-soft text-[10px] font-bold text-brand-strong">
+                  {auth.user.displayName.slice(0, 1).toUpperCase()}
+                </span>
+                {auth.user.displayName}
+              </span>
+            ) : (
+              <Link to="/login" className="flex items-center gap-1.5 px-2 py-1 text-sm font-medium text-ink">
+                <User className="h-5 w-5" /> Login
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -70,12 +83,33 @@ export function Header() {
             </nav>
           </div>
           <div className="flex items-center gap-2">
-            <Link to="/admin" className="hidden items-center gap-1.5 rounded-[2px] px-2 py-2 text-sm font-medium text-muted hover:text-ink lg:flex">
-              <Shield className="h-4 w-4" /> Admin
-            </Link>
+            {auth.user?.role === 'admin' && (
+              <Link to="/admin" className="hidden items-center gap-1.5 rounded-[2px] px-2 py-2 text-sm font-medium text-muted hover:text-ink lg:flex">
+                <Shield className="h-4 w-4" /> Admin
+              </Link>
+            )}
+            {auth.user ? (
+              <Link to="/settings" className="hidden rounded-[2px] p-2 text-muted hover:text-ink sm:block" aria-label="Settings">
+                <Settings className="h-5 w-5" />
+              </Link>
+            ) : null}
             <Link to="/upload" className="btn-outline hidden sm:inline-flex">
               + Create
             </Link>
+            {auth.user && (
+              <button
+                type="button"
+                onClick={async () => {
+                  try { await post('/api/auth/logout', {}, auth.csrf) } catch { /* ignore */ }
+                  setAuth((prev) => ({ ...prev, user: null, csrf: '' }))
+                  navigate('/')
+                }}
+                className="hidden rounded-[2px] p-2 text-muted hover:text-ink sm:block"
+                aria-label="Log out"
+              >
+                <LogOut className="h-5 w-5" />
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setOpen((v) => !v)}
@@ -90,7 +124,12 @@ export function Header() {
         {open && (
           <div className="border-t border-line bg-surface md:hidden">
             <nav className="container-page flex flex-col py-2">
-              {[...nav, { to: '/upload', label: 'Upload' }, { to: '/login', label: 'Login' }, { to: '/admin', label: 'Admin' }].map((item) => (
+              {[
+                ...nav,
+                { to: '/upload', label: 'Upload' },
+                ...(auth.user ? [{ to: '/settings', label: 'Settings' }] : [{ to: '/login', label: 'Login' }]),
+                ...(auth.user?.role === 'admin' ? [{ to: '/admin', label: 'Admin' }] : []),
+              ].map((item) => (
                 <Link
                   key={item.to}
                   to={item.to}

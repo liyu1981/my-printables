@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -10,11 +11,15 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
+	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
+	"myprintables/internal/auth"
 	"myprintables/internal/config"
 	"myprintables/internal/httpapi"
 	"myprintables/internal/logging"
@@ -148,8 +153,30 @@ func runServe(cmd *cobra.Command, args []string) error {
 }
 
 func ensureAdmin(st *store.Store, cfg config.Config, email, password string) error {
-	// Implemented in M1. Keeping this hook in M0 means an unattended start does
-	// not crash before the accounts migration exists.
+	ctx := context.Background()
+	n, err := st.CountUsers(ctx)
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		return nil
+	}
+	if msg := auth.PasswordProblem(password); msg != "" {
+		return fmt.Errorf("%s", msg)
+	}
+	hash, err := auth.HashPassword(password)
+	if err != nil {
+		return err
+	}
+	verified := time.Now().Unix()
+	u := store.User{
+		ID: store.NewID(), Email: strings.ToLower(strings.TrimSpace(email)), Username: "admin",
+		DisplayName: "Administrator", Role: "admin", IsActive: true, EmailVerifiedAt: &verified,
+	}
+	if err := st.CreateUser(ctx, u, hash); err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "bootstrap admin created: %s\n", u.Email)
 	return nil
 }
 
@@ -189,18 +216,220 @@ func newMigrateCmd() *cobra.Command {
 
 func newAdminCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "admin", Short: "Administrative account commands"}
-	for _, name := range []string{"create", "list", "verify-email", "reset-password"} {
-		name := name
-		sub := &cobra.Command{
-			Use:   name,
-			Short: "admin " + name,
-			RunE: func(cmd *cobra.Command, args []string) error {
-				return fmt.Errorf("admin %s is not available until the accounts milestone", name)
-			},
-		}
-		cmd.AddCommand(sub)
-	}
+	cmd.AddCommand(newAdminCreateCmd(), newAdminListCmd(), newAdminVerifyCmd(), newAdminResetCmd())
 	return cmd
+}
+
+func newAdminCreateCmd() *cobra.Command {
+	var email, username, displayName, role, password string
+	var stdin, generate bool
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create an account",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			st, _, _, err := openStore()
+			if err != nil {
+				return err
+			}
+			defer st.Close()
+			password, err = readPassword(password, stdin, generate)
+			if err != nil {
+				return err
+			}
+			if msg := auth.PasswordProblem(password); msg != "" {
+				return fmt.Errorf("%s", msg)
+			}
+			if role != "admin" && role != "user" {
+				return fmt.Errorf("role must be admin or user")
+			}
+			hash, err := auth.HashPassword(password)
+			if err != nil {
+				return err
+			}
+			verified := time.Now().Unix()
+			u := store.User{
+				ID: store.NewID(), Email: strings.ToLower(strings.TrimSpace(email)),
+				Username: strings.TrimSpace(username), DisplayName: strings.TrimSpace(displayName),
+				Role: role, IsActive: true, EmailVerifiedAt: &verified,
+			}
+			if u.DisplayName == "" {
+				u.DisplayName = u.Username
+			}
+			if err := st.CreateUser(cmd.Context(), u, hash); err != nil {
+				return err
+			}
+			if jsonOutput {
+				return json.NewEncoder(cmd.OutOrStdout()).Encode(map[string]any{"user": u, "password": generatedPassword(password, generate)})
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "created %s (%s)\n", u.Email, u.Role)
+			if generate {
+				fmt.Fprintf(cmd.OutOrStdout(), "password: %s\n", password)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&email, "email", "", "email address")
+	cmd.Flags().StringVar(&username, "username", "", "username")
+	cmd.Flags().StringVar(&displayName, "display-name", "", "display name")
+	cmd.Flags().StringVar(&role, "role", "user", "role: admin|user")
+	cmd.Flags().BoolVar(&stdin, "password-stdin", false, "read password from stdin")
+	cmd.Flags().BoolVar(&generate, "generate", false, "generate a random password and print it once")
+	_ = cmd.MarkFlagRequired("email")
+	_ = cmd.MarkFlagRequired("username")
+	return cmd
+}
+
+func newAdminListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List accounts",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			st, _, _, err := openStore()
+			if err != nil {
+				return err
+			}
+			defer st.Close()
+			users, err := st.ListUsers(cmd.Context(), "", 200)
+			if err != nil {
+				return err
+			}
+			if jsonOutput {
+				return json.NewEncoder(cmd.OutOrStdout()).Encode(map[string]any{"items": users})
+			}
+			tw := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
+			fmt.Fprintln(tw, "EMAIL\tUSERNAME\tROLE\tACTIVE\tVERIFIED")
+			for _, u := range users {
+				verified := "no"
+				if u.EmailVerifiedAt != nil {
+					verified = "yes"
+				}
+				active := "no"
+				if u.IsActive {
+					active = "yes"
+				}
+				fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", u.Email, u.Username, u.Role, active, verified)
+			}
+			return tw.Flush()
+		},
+	}
+}
+
+func newAdminVerifyCmd() *cobra.Command {
+	var email string
+	cmd := &cobra.Command{
+		Use:   "verify-email",
+		Short: "Mark an account's email as verified",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			st, _, _, err := openStore()
+			if err != nil {
+				return err
+			}
+			defer st.Close()
+			u, _, err := st.UserByEmail(cmd.Context(), email)
+			if err != nil {
+				return err
+			}
+			if err := st.SetEmailVerified(cmd.Context(), u.ID); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "verified %s\n", u.Email)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&email, "email", "", "email address")
+	_ = cmd.MarkFlagRequired("email")
+	return cmd
+}
+
+func newAdminResetCmd() *cobra.Command {
+	var email, password string
+	var stdin, generate bool
+	cmd := &cobra.Command{
+		Use:   "reset-password",
+		Short: "Reset an account password and revoke its sessions",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			st, _, _, err := openStore()
+			if err != nil {
+				return err
+			}
+			defer st.Close()
+			u, _, err := st.UserByEmail(cmd.Context(), email)
+			if err != nil {
+				return err
+			}
+			password, err = readPassword(password, stdin, generate)
+			if err != nil {
+				return err
+			}
+			if msg := auth.PasswordProblem(password); msg != "" {
+				return fmt.Errorf("%s", msg)
+			}
+			hash, err := auth.HashPassword(password)
+			if err != nil {
+				return err
+			}
+			if err := st.UpdateUser(cmd.Context(), u.ID, map[string]any{"password_hash": hash}); err != nil {
+				return err
+			}
+			_ = st.DeleteUserSessions(cmd.Context(), u.ID)
+			fmt.Fprintf(cmd.OutOrStdout(), "password reset for %s; all sessions revoked\n", u.Email)
+			if generate {
+				fmt.Fprintf(cmd.OutOrStdout(), "password: %s\n", password)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&email, "email", "", "email address")
+	cmd.Flags().BoolVar(&stdin, "password-stdin", false, "read password from stdin")
+	cmd.Flags().BoolVar(&generate, "generate", false, "generate a random password and print it once")
+	_ = cmd.MarkFlagRequired("email")
+	return cmd
+}
+
+func readPassword(given string, stdin, generate bool) (string, error) {
+	if given != "" {
+		return given, nil
+	}
+	if generate {
+		token, err := auth.NewToken(12)
+		if err != nil {
+			return "", err
+		}
+		return token, nil
+	}
+	if stdin {
+		line, err := bufio.NewReader(os.Stdin).ReadString('\n')
+		if err != nil && strings.TrimSpace(line) == "" {
+			return "", err
+		}
+		return strings.TrimSpace(line), nil
+	}
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		return "", fmt.Errorf("no TTY; use --password-stdin or --generate")
+	}
+	fmt.Fprint(os.Stderr, "Password: ")
+	first, err := term.ReadPassword(int(os.Stdin.Fd()))
+	fmt.Fprintln(os.Stderr)
+	if err != nil {
+		return "", err
+	}
+	fmt.Fprint(os.Stderr, "Confirm password: ")
+	second, err := term.ReadPassword(int(os.Stdin.Fd()))
+	fmt.Fprintln(os.Stderr)
+	if err != nil {
+		return "", err
+	}
+	if string(first) != string(second) {
+		return "", fmt.Errorf("passwords do not match")
+	}
+	return string(first), nil
+}
+
+func generatedPassword(password string, generate bool) string {
+	if generate {
+		return password
+	}
+	return ""
 }
 
 func newBackupCmd() *cobra.Command {
