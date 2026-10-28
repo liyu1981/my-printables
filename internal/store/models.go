@@ -51,6 +51,18 @@ type Tag struct {
 	Count int    `json:"count"`
 }
 
+type ModelAttachment struct {
+	ID           string `json:"id"`
+	ModelID      string `json:"-"`
+	Filename     string `json:"filename"`
+	MimeType     string `json:"mimeType"`
+	SizeBytes    int64  `json:"sizeBytes"`
+	SHA256       string `json:"sha256"`
+	SortOrder    int    `json:"sortOrder"`
+	CreatedAt    int64  `json:"createdAt"`
+	StorageRel   string `json:"-"`
+}
+
 type Model struct {
 	ID              string `json:"id"`
 	OwnerID         string `json:"ownerId"`
@@ -87,6 +99,7 @@ type Model struct {
 	PublishedAt     *int64 `json:"publishedAt"`
 	Files           []ModelFile `json:"files,omitempty"`
 	Images          []ModelImage `json:"images,omitempty"`
+	Attachments     []ModelAttachment `json:"attachments,omitempty"`
 	Tags            []Tag `json:"tags,omitempty"`
 }
 
@@ -287,6 +300,9 @@ func (s *Store) ModelByID(ctx context.Context, id, viewerID string) (Model, erro
 	if m.Tags, err = s.TagsByModel(ctx, m.ID); err != nil {
 		return m, err
 	}
+	if m.Attachments, err = s.AttachmentsByModel(ctx, m.ID); err != nil {
+		return m, err
+	}
 	return m, nil
 }
 
@@ -468,9 +484,65 @@ func (s *Store) DeleteModel(ctx context.Context, id string) ([]string, error) {
 	for _, im := range m.Images {
 		paths = append(paths, im.OriginalPath, im.LargePath, im.ThumbPath)
 	}
+	for _, a := range m.Attachments {
+		paths = append(paths, a.StorageRel)
+	}
 	_, _ = s.DB.ExecContext(ctx, `UPDATE collections SET model_count = MAX(0, model_count - 1) WHERE id IN (SELECT collection_id FROM collection_models WHERE model_id = ?)`, id)
 	_, err = s.DB.ExecContext(ctx, `DELETE FROM models WHERE id = ?`, id)
 	return paths, err
+}
+
+func (s *Store) AttachmentsByModel(ctx context.Context, modelID string) ([]ModelAttachment, error) {
+	rows, err := s.DB.QueryContext(ctx, `SELECT id,model_id,filename,storage_path,mime_type,size_bytes,sha256,
+		sort_order,created_at FROM model_attachments WHERE model_id = ? ORDER BY sort_order, created_at`, modelID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ModelAttachment
+	for rows.Next() {
+		var a ModelAttachment
+		if err := rows.Scan(&a.ID, &a.ModelID, &a.Filename, &a.StorageRel, &a.MimeType, &a.SizeBytes,
+			&a.SHA256, &a.SortOrder, &a.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	if out == nil {
+		out = []ModelAttachment{}
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) AddAttachment(ctx context.Context, a ModelAttachment) error {
+	_, err := s.DB.ExecContext(ctx, `INSERT INTO model_attachments(id,model_id,filename,storage_path,mime_type,
+		size_bytes,sha256,sort_order,created_at) VALUES(?,?,?,?,?,?,?,?,?)`,
+		a.ID, a.ModelID, a.Filename, a.StorageRel, a.MimeType, a.SizeBytes, a.SHA256, a.SortOrder, time.Now().Unix())
+	return err
+}
+
+func (s *Store) AttachmentByID(ctx context.Context, modelID, attachmentID string) (ModelAttachment, error) {
+	var a ModelAttachment
+	err := s.DB.QueryRowContext(ctx, `SELECT id,model_id,filename,storage_path,mime_type,size_bytes,sha256,
+		sort_order,created_at FROM model_attachments WHERE id = ? AND model_id = ?`, attachmentID, modelID).Scan(
+		&a.ID, &a.ModelID, &a.Filename, &a.StorageRel, &a.MimeType, &a.SizeBytes, &a.SHA256, &a.SortOrder, &a.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return a, ErrNotFound
+	}
+	return a, err
+}
+
+func (s *Store) DeleteAttachment(ctx context.Context, modelID, attachmentID string) (string, error) {
+	var path string
+	err := s.DB.QueryRowContext(ctx, `SELECT storage_path FROM model_attachments WHERE id = ? AND model_id = ?`, attachmentID, modelID).Scan(&path)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", ErrNotFound
+		}
+		return "", err
+	}
+	_, err = s.DB.ExecContext(ctx, `DELETE FROM model_attachments WHERE id = ?`, attachmentID)
+	return path, err
 }
 
 func (s *Store) AddFile(ctx context.Context, f ModelFile) error {

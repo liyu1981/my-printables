@@ -1,4 +1,4 @@
-import { FileBox, ImagePlus, Loader2, Trash2, Upload as UploadIcon, X } from 'lucide-react'
+import { FileBox, FileText, ImagePlus, Loader2, Trash2, Upload as UploadIcon, X } from 'lucide-react'
 import { useAtom } from 'jotai'
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
@@ -41,11 +41,14 @@ export function Upload() {
   const [form, setForm] = useState({ title: '', description: '', categoryId: '', license: '', sourceUrl: '', visibility: 'public', tags: '' })
   const [files, setFiles] = useState<UploadState[]>([])
   const [images, setImages] = useState<UploadState[]>([])
+  const [attachments, setAttachments] = useState<UploadState[]>([])
   const [existingFiles, setExistingFiles] = useState<Model['files']>([])
   const [existingImages, setExistingImages] = useState<Model['images']>([])
+  const [existingAttachments, setExistingAttachments] = useState<Model['attachments']>([])
   const [error, setError] = useState('')
   const [modelDropError, setModelDropError] = useState('')
   const [imageDropError, setImageDropError] = useState('')
+  const [attachmentDropError, setAttachmentDropError] = useState('')
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(!!editId)
 
@@ -65,6 +68,7 @@ export function Upload() {
       })
       setExistingFiles(model.files ?? [])
       setExistingImages(model.images ?? [])
+      setExistingAttachments(model.attachments ?? [])
     }).catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load model.')).finally(() => setLoading(false))
   }, [editId])
 
@@ -92,6 +96,19 @@ export function Upload() {
     }
     if (accepted.length) setImages((prev) => [...prev, ...accepted.map((file) => ({ file, progress: 0 }))])
     setImageDropError(rejected.length ? `Unsupported image file${rejected.length === 1 ? '' : 's'}: ${rejected.join(', ')}. Use JPEG, PNG, or WebP.` : '')
+  }
+
+  function addAttachmentFiles(list: File[]) {
+    const allowed = new Set(['pdf', 'txt', 'md', 'zip'])
+    const accepted: File[] = []
+    const rejected: string[] = []
+    for (const file of list) {
+      const ext = file.name.toLowerCase().split('.').pop() ?? ''
+      if (allowed.has(ext)) accepted.push(file)
+      else rejected.push(file.name)
+    }
+    if (accepted.length) setAttachments((prev) => [...prev, ...accepted.map((file) => ({ file, progress: 0 }))])
+    setAttachmentDropError(rejected.length ? `Unsupported attachment${rejected.length === 1 ? '' : 's'}: ${rejected.join(', ')}. Use PDF, TXT, MD, or ZIP.` : '')
   }
 
   async function submit(e: React.FormEvent, publish: boolean) {
@@ -141,6 +158,17 @@ export function Upload() {
           throw err
         }
       }
+      for (let i = 0; i < attachments.length; i++) {
+        setAttachments((prev) => prev.map((f, j) => j === i ? { ...f, progress: 0, error: undefined } : f))
+        try {
+          await uploadWithProgress(`/api/models/${model.id}/attachments`, attachments[i].file, auth.csrf, (n) => {
+            setAttachments((prev) => prev.map((f, j) => j === i ? { ...f, progress: n } : f))
+          })
+        } catch (err) {
+          setAttachments((prev) => prev.map((f, j) => j === i ? { ...f, error: err instanceof Error ? err.message : 'Upload failed' } : f))
+          throw err
+        }
+      }
       const hasImages = (existingImages?.length ?? 0) > 0 || images.length > 0
       if (!hasImages && files.length > 0) {
         try {
@@ -170,6 +198,11 @@ export function Upload() {
     if (!editing) return
     try { await del(`/api/models/${editing.id}/images/${id}`, auth.csrf); setExistingImages((f) => (f ?? []).filter((x) => x.id !== id)) }
     catch (err) { setError(err instanceof ApiError ? err.message : 'Could not delete image.') }
+  }
+  async function removeAttachment(id: string) {
+    if (!editing) return
+    try { await del(`/api/models/${editing.id}/attachments/${id}`, auth.csrf); setExistingAttachments((f) => (f ?? []).filter((x) => x.id !== id)) }
+    catch (err) { setError(err instanceof ApiError ? err.message : 'Could not delete attachment.') }
   }
 
   if (!auth.user) return null
@@ -241,6 +274,29 @@ export function Upload() {
                   <div key={`${im.file.name}-${i}`} className="relative border border-line p-1"><img src={URL.createObjectURL(im.file)} alt="" className="h-20 w-24 object-cover" /><button type="button" onClick={() => setImages((prev) => prev.filter((_, j) => j !== i))} className="absolute right-1 top-1 bg-ink/80 p-1 text-white"><X className="h-3 w-3" /></button>{im.progress > 0 && <div className="absolute bottom-1 left-1 right-1 h-1 bg-canvas"><div className="h-1 bg-brand" style={{ width: `${im.progress}%` }} /></div>}</div>
                 ))}
               </div>
+            </section>
+
+            <section className="card-line p-5">
+              <div className="flex items-center justify-between"><h2 className="font-display text-lg font-bold text-ink">Attachments</h2><span className="text-[11px] text-muted">PDF · TXT · MD · ZIP</span></div>
+              <p className="mt-1 text-[11px] text-muted">Add assembly instructions, documentation, or a ZIP bundle.</p>
+              <DropZone
+                accept=".pdf,.txt,.md,.zip"
+                title="Add instructions or documents"
+                subtitle="or drag and drop · PDF · TXT · MD · ZIP"
+                icon={<FileText className="h-6 w-6 text-brand" />}
+                onFiles={addAttachmentFiles}
+              />
+              {attachmentDropError && <p className="mt-2 text-[11px] text-danger">{attachmentDropError}</p>}
+              {(existingAttachments ?? []).map((a) => (
+                <div key={a.id} className="mt-3 flex items-center gap-3 border border-line px-3 py-2"><FileText className="h-4 w-4 text-brand" /><span className="min-w-0 flex-1 truncate text-xs">{a.filename}</span><span className="text-[10px] text-muted">{formatBytes(a.sizeBytes)}</span><button type="button" onClick={() => removeAttachment(a.id)} className="text-muted hover:text-danger"><Trash2 className="h-4 w-4" /></button></div>
+              ))}
+              {attachments.map((f, i) => (
+                <div key={`${f.file.name}-${i}`} className="mt-2 border border-line px-3 py-2 text-xs">
+                  <div className="flex items-center gap-2"><FileText className="h-4 w-4 text-brand" /><span className="min-w-0 flex-1 truncate">{f.file.name}</span><span className="text-muted">{formatBytes(f.file.size)}</span><button type="button" onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))} className="text-muted hover:text-danger"><X className="h-4 w-4" /></button></div>
+                  {f.progress > 0 && <div className="mt-1 h-1 bg-canvas"><div className="h-1 bg-brand" style={{ width: `${f.progress}%` }} /></div>}
+                  {f.error && <p className="mt-1 text-danger">{f.error}</p>}
+                </div>
+              ))}
             </section>
           </div>
 

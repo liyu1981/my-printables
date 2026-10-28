@@ -12,6 +12,15 @@ export type ModelFile = {
   sortOrder: number
   createdAt: number
 }
+export type ModelAttachment = {
+  id: string
+  filename: string
+  mimeType: string
+  sizeBytes: number
+  sha256: string
+  sortOrder: number
+  createdAt: number
+}
 export type ModelImage = {
   id: string
   width: number
@@ -56,6 +65,7 @@ export type Model = {
   publishedAt: number | null
   files?: ModelFile[]
   images?: ModelImage[]
+  attachments?: ModelAttachment[]
   tags?: Tag[]
 }
 export type ModelPage = { items: Model[]; page: number; perPage: number; total: number; totalPages: number }
@@ -66,6 +76,9 @@ export function imageUrl(modelId: string, imageId: string, variant: 'thumb' | 'l
 }
 export function fileUrl(modelId: string, fileId: string, download = false) {
   return `/api/models/${modelId}/files/${fileId}/content${download ? '?download=1' : ''}`
+}
+export function attachmentUrl(modelId: string, attachmentId: string, download = false) {
+  return `/api/models/${modelId}/attachments/${attachmentId}/content${download ? '?download=1' : ''}`
 }
 export function modelUrl(m: Pick<Model, 'id' | 'slug'>) {
   return `/model/${m.id}/${m.slug}`

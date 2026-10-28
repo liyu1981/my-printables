@@ -1,4 +1,4 @@
-import { Bookmark, Box, Download, Eye, FileBox, FolderPlus, Heart, Pencil, Share2, Star, Trash2 } from 'lucide-react'
+import { Bookmark, Box, Download, Eye, FileBox, FileText, FolderPlus, Heart, Pencil, Share2, Star, Trash2 } from 'lucide-react'
 import { useAtom } from 'jotai'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
@@ -7,7 +7,7 @@ import rehypeSanitize from 'rehype-sanitize'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { authAtom } from '../atoms/auth'
 import { ApiError, del, formatBytes, formatDate, post } from '../lib/api'
-import { displayCount, fileUrl, getModel, imageUrl, modelUrl, visibilityLabel, type Model, type ModelDetail as Detail } from '../lib/models'
+import { attachmentUrl, displayCount, fileUrl, getModel, imageUrl, modelUrl, visibilityLabel, type Model, type ModelDetail as Detail } from '../lib/models'
 import { getModelCollections, type Collection } from '../lib/social'
 import { RatingInput } from '../components/RatingInput'
 import { Comments } from '../components/Comments'
@@ -56,6 +56,7 @@ export function ModelDetail() {
   const m = detail.model
   const images = (m.images ?? []).filter((im) => im.kind === 'upload')
   const files = m.files ?? []
+  const attachments = m.attachments ?? []
   const preview = files.find((f) => f.isPreview) ?? files[0]
   const canEdit = detail.canEdit
   const isAuthed = !!auth.user
@@ -170,6 +171,23 @@ export function ModelDetail() {
                 ))}
                 {files.length === 0 && <p className="p-6 text-sm text-muted">No files uploaded yet.</p>}
               </div>
+              {attachments.length > 0 && (
+                <div className="mt-6">
+                  <h2 className="font-display text-base font-bold text-ink">Attachments</h2>
+                  <div className="mt-2 border border-line bg-surface">
+                    {attachments.map((a) => (
+                      <div key={a.id} className="flex items-center gap-3 border-b border-line px-3 py-3 last:border-0">
+                        <FileText className="h-5 w-5 shrink-0 text-brand" />
+                        <div className="min-w-0 flex-1">
+                          <a href={attachmentUrl(m.id, a.id)} target="_blank" rel="noreferrer" className="block truncate text-sm font-semibold text-ink hover:text-brand-strong hover:underline">{a.filename}</a>
+                          <p className="text-[11px] text-muted">{a.mimeType.split(';')[0]} · {formatBytes(a.sizeBytes)}</p>
+                        </div>
+                        <a href={attachmentUrl(m.id, a.id, true)} className="btn-secondary !min-h-8 !px-2 !text-[11px]"><Download className="h-3.5 w-3.5" /> Download</a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

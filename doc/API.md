@@ -31,6 +31,9 @@ Base path: `/api`. Authenticated mutations require a session cookie plus `X-CSRF
 | DELETE | `/models/{id}/files/{fileID}` |
 | POST | `/models/{id}/images` (multipart `file`, optional `?kind=render`) |
 | DELETE | `/models/{id}/images/{imageID}` |
+| POST | `/models/{id}/attachments` (multipart `file`) |
+| DELETE | `/models/{id}/attachments/{attachmentID}` |
+| GET | `/models/{id}/attachments/{attachmentID}/content?download=1` |
 | GET | `/models/{id}/files/{fileID}/content?download=1` |
 | GET | `/models/{id}/images/{imageID}/{original|large|thumb}` |
 | POST/DELETE | `/models/{id}/like` |

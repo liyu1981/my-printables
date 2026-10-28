@@ -10,6 +10,7 @@ and the administrative CLI.
 - Open registration with optional email verification (SMTP, off by default)
 - Admin and user roles, sessions, password reset via admin UI/CLI
 - Models with multiple STL / 3MF / OBJ / PLY / GLB / GLTF files
+- PDF/TXT/Markdown/ZIP attachments for assembly instructions and documentation
 - Public, members-only, and private visibility
 - Image uploads with automatic resizing and client-generated 3D covers
 - Fullscreen 3D preview with orbit/zoom/pan, file switching, screenshots, and region-crop captures saved to the gallery

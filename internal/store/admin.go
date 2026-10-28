@@ -101,7 +101,18 @@ func (s *Store) UserMediaPaths(ctx context.Context, userID string) ([]string, er
 			paths = append(paths, a, b, c)
 		}
 	}
-	return paths, irows.Err()
+	arows, err := s.DB.QueryContext(ctx, `SELECT storage_path FROM model_attachments WHERE model_id IN (SELECT id FROM models WHERE owner_id=?)`, userID)
+	if err != nil {
+		return paths, err
+	}
+	defer arows.Close()
+	for arows.Next() {
+		var p string
+		if err := arows.Scan(&p); err == nil {
+			paths = append(paths, p)
+		}
+	}
+	return paths, arows.Err()
 }
 
 func (s *Store) StorageStats(ctx context.Context) (files, mediaBytes int64) {

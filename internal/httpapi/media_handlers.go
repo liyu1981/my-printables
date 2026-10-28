@@ -24,6 +24,13 @@ import (
 	"myprintables/internal/store"
 )
 
+var attachmentMime = map[string]string{
+	".pdf": "application/pdf",
+	".txt": "text/plain; charset=utf-8",
+	".md":  "text/markdown; charset=utf-8",
+	".zip": "application/zip",
+}
+
 var formatByExt = map[string]string{
 	".stl": "stl", ".3mf": "3mf", ".obj": "obj", ".ply": "ply", ".glb": "glb", ".gltf": "gltf",
 }
@@ -276,6 +283,150 @@ func cleanFilename(s string) string {
 		return ""
 	}
 	return s
+}
+
+func (s *Server) handleUploadAttachment(w http.ResponseWriter, r *http.Request) {
+	modelID := chi.URLParam(r, "id")
+	m, err := s.st.ModelByID(r.Context(), modelID, currentUser(r).ID)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "not_found", "Model not found.")
+		return
+	}
+	if !s.canEditModel(r, m) {
+		writeErr(w, http.StatusForbidden, "forbidden", "You cannot upload to this model.")
+		return
+	}
+	tmpPath, filename, size, sum, err := s.receiveUpload(r, 50*1024*1024)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "upload_failed", err.Error())
+		return
+	}
+	defer os.Remove(tmpPath)
+	ext := strings.ToLower(filepath.Ext(filename))
+	mimeType, ok := attachmentMime[ext]
+	if !ok {
+		writeErr(w, http.StatusBadRequest, "unsupported_attachment", "Attachments must be PDF, TXT, Markdown, or ZIP.")
+		return
+	}
+	if err := validateAttachment(tmpPath, ext); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid_attachment", err.Error())
+		return
+	}
+	attachmentID := store.NewID()
+	rel := s.fs.Rel("media", "models", modelID, "attachments", attachmentID+ext)
+	if err := s.fs.EnsureDir(s.fs.Rel("media", "models", modelID, "attachments")); err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal", "Could not prepare storage.")
+		return
+	}
+	abs, err := s.fs.Abs(rel)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal", "Invalid storage path.")
+		return
+	}
+	if err := os.Rename(tmpPath, abs); err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal", "Could not store attachment.")
+		return
+	}
+	var count int
+	_ = s.st.DB.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM model_attachments WHERE model_id = ?`, modelID).Scan(&count)
+	a := store.ModelAttachment{
+		ID: attachmentID, ModelID: modelID, Filename: cleanFilename(filename), MimeType: mimeType,
+		SizeBytes: size, SHA256: sum, SortOrder: count, StorageRel: rel,
+	}
+	if err := s.st.AddAttachment(r.Context(), a); err != nil {
+		s.fs.Remove(rel)
+		writeErr(w, http.StatusInternalServerError, "internal", "Could not save attachment metadata.")
+		return
+	}
+	s.audit(r, currentUser(r).ID, "model.attachment_uploaded", "model", modelID, jsonMap(map[string]any{"file": filename}))
+	writeJSON(w, http.StatusCreated, map[string]any{"attachment": a})
+}
+
+func (s *Server) handleDeleteAttachment(w http.ResponseWriter, r *http.Request) {
+	modelID, attachmentID := chi.URLParam(r, "id"), chi.URLParam(r, "attachmentID")
+	m, err := s.st.ModelByID(r.Context(), modelID, currentUser(r).ID)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "not_found", "Model not found.")
+		return
+	}
+	if !s.canEditModel(r, m) {
+		writeErr(w, http.StatusForbidden, "forbidden", "You cannot edit this model.")
+		return
+	}
+	path, err := s.st.DeleteAttachment(r.Context(), modelID, attachmentID)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "not_found", "Attachment not found.")
+		return
+	}
+	s.fs.Remove(path)
+	s.audit(r, currentUser(r).ID, "model.attachment_deleted", "model", modelID, `{}`)
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (s *Server) handleAttachmentContent(w http.ResponseWriter, r *http.Request) {
+	modelID, attachmentID := chi.URLParam(r, "id"), chi.URLParam(r, "attachmentID")
+	m, ok := s.loadViewableModel(w, r, modelID)
+	if !ok {
+		return
+	}
+	a, err := s.st.AttachmentByID(r.Context(), modelID, attachmentID)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "not_found", "Attachment not found.")
+		return
+	}
+	abs, err := s.fs.Abs(a.StorageRel)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal", "Invalid storage path.")
+		return
+	}
+	fh, err := os.Open(abs)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "not_found", "Attachment not found.")
+		return
+	}
+	defer fh.Close()
+	stat, _ := fh.Stat()
+	ct := a.MimeType
+	if ct == "" {
+		ct = mime.TypeByExtension(filepath.Ext(a.Filename))
+	}
+	w.Header().Set("Content-Type", ct)
+	w.Header().Set("ETag", `"`+a.SHA256+`"`)
+	w.Header().Set("Cache-Control", cacheFor(m.Visibility)+", immutable")
+	disposition := "inline"
+	if r.URL.Query().Get("download") == "1" || strings.EqualFold(filepath.Ext(a.Filename), ".zip") {
+		disposition = "attachment"
+	}
+	w.Header().Set("Content-Disposition", mime.FormatMediaType(disposition, map[string]string{"filename": a.Filename}))
+	http.ServeContent(w, r, a.Filename, stat.ModTime(), fh)
+}
+
+func validateAttachment(path, ext string) error {
+	if ext == ".pdf" {
+		f, err := os.Open(path)
+		if err != nil {
+			return errors.New("attachment is unreadable")
+		}
+		defer f.Close()
+		buf := make([]byte, 5)
+		_, _ = io.ReadFull(f, buf)
+		if string(buf) != "%PDF-" {
+			return errors.New("PDF file has an invalid header")
+		}
+	}
+	if ext == ".zip" {
+		f, err := os.Open(path)
+		if err != nil {
+			return errors.New("attachment is unreadable")
+		}
+		defer f.Close()
+		buf := make([]byte, 4)
+		_, _ = io.ReadFull(f, buf)
+		if len(buf) < 2 || string(buf[:2]) != "PK" {
+			return errors.New("ZIP file has an invalid header")
+		}
+	}
+	return nil
 }
 
 func validate3DFile(path, format string) error {

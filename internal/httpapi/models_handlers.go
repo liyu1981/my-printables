@@ -37,6 +37,8 @@ func (s *Server) mountModels(api chi.Router) {
 		p.Delete("/models/{id}/files/{fileID}", s.handleDeleteFile)
 		p.Post("/models/{id}/images", s.handleUploadImage)
 		p.Delete("/models/{id}/images/{imageID}", s.handleDeleteImage)
+		p.Post("/models/{id}/attachments", s.handleUploadAttachment)
+		p.Delete("/models/{id}/attachments/{attachmentID}", s.handleDeleteAttachment)
 		p.Post("/models/{id}/like", s.handleLike)
 		p.Delete("/models/{id}/like", s.handleLike)
 		p.Post("/models/{id}/bookmark", s.handleBookmark)
@@ -46,6 +48,7 @@ func (s *Server) mountModels(api chi.Router) {
 	// Media content is checked separately, not by the CSRF group.
 	api.Get("/models/{id}/files/{fileID}/content", s.handleFileContent)
 	api.Get("/models/{id}/images/{imageID}/{variant}", s.handleImageContent)
+	api.Get("/models/{id}/attachments/{attachmentID}/content", s.handleAttachmentContent)
 }
 
 func (s *Server) viewer(r *http.Request) (string, bool) {
