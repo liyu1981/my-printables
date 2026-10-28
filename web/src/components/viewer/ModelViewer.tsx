@@ -49,7 +49,7 @@ export default function ModelViewer({
   const [saveError, setSaveError] = useState('')
   const [captureMode, setCaptureMode] = useState(false)
   const [selection, setSelection] = useState<Selection | null>(null)
-  const dragStart = useRef<{ x: number; y: number } | null>(null)
+  const dragStart = useRef<{ x: number; y: number; mode: 'move' | 'draw'; original?: Selection } | null>(null)
   const captureModeRef = useRef(false)
   const [auth] = useAtom(authAtom)
 
@@ -260,7 +260,17 @@ export default function ModelViewer({
     const el = containerRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
-    setSelection({ x: rect.width * 0.12, y: rect.height * 0.12, w: rect.width * 0.76, h: rect.height * 0.76 })
+    // Preferred gallery aspect is 4:3, centered. The user can drag the frame
+    // to reposition it, or draw a new region outside the frame.
+    const maxW = rect.width * 0.72
+    const maxH = rect.height * 0.72
+    let w = maxW
+    let h = w * 0.75
+    if (h > maxH) {
+      h = maxH
+      w = h / 0.75
+    }
+    setSelection({ x: (rect.width - w) / 2, y: (rect.height - h) / 2, w, h })
     setCaptureMode(true)
     setSaveError('')
     setSaveMessage('')
@@ -276,16 +286,30 @@ export default function ModelViewer({
     const rect = e.currentTarget.getBoundingClientRect()
     const x = clamp(e.clientX - rect.left, 0, rect.width)
     const y = clamp(e.clientY - rect.top, 0, rect.height)
-    dragStart.current = { x, y }
-    setSelection({ x, y, w: 0, h: 0 })
+    const inside = !!selection && x >= selection.x && x <= selection.x + selection.w && y >= selection.y && y <= selection.y + selection.h
+    if (inside && selection) {
+      dragStart.current = { x, y, mode: 'move', original: { ...selection } }
+    } else {
+      dragStart.current = { x, y, mode: 'draw' }
+      setSelection({ x, y, w: 0, h: 0 })
+    }
   }
   function pointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    if (!dragStart.current) return
+    const start = dragStart.current
+    if (!start) return
     const rect = e.currentTarget.getBoundingClientRect()
     const x = clamp(e.clientX - rect.left, 0, rect.width)
     const y = clamp(e.clientY - rect.top, 0, rect.height)
-    const start = dragStart.current
-    setSelection({ x: Math.min(start.x, x), y: Math.min(start.y, y), w: Math.abs(x - start.x), h: Math.abs(y - start.y) })
+    if (start.mode === 'move' && start.original) {
+      const o = start.original
+      setSelection({
+        ...o,
+        x: clamp(o.x + (x - start.x), 0, rect.width - o.w),
+        y: clamp(o.y + (y - start.y), 0, rect.height - o.h),
+      })
+    } else {
+      setSelection({ x: Math.min(start.x, x), y: Math.min(start.y, y), w: Math.abs(x - start.x), h: Math.abs(y - start.y) })
+    }
   }
   function pointerUp() {
     dragStart.current = null
@@ -363,7 +387,7 @@ export default function ModelViewer({
           >
             {selection && (
               <div
-                className="absolute border-2 border-brand"
+                className="absolute cursor-move border-2 border-brand"
                 style={{
                   left: selection.x, top: selection.y, width: selection.w, height: selection.h,
                   boxShadow: '0 0 0 9999px rgba(0,0,0,.48)',
@@ -378,8 +402,8 @@ export default function ModelViewer({
           </div>
           <div className="absolute left-1/2 top-4 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 border border-line bg-surface/95 px-4 py-2.5 shadow-sm">
             <Crop className="h-4 w-4 shrink-0 text-brand" />
-            <span className="hidden text-xs text-muted sm:inline">Drag to select the gallery area</span>
-            <span className="text-xs text-muted sm:hidden">Drag to select</span>
+            <span className="hidden text-xs text-muted sm:inline">Drag the 4:3 frame to move it · drag outside to redraw</span>
+            <span className="text-xs text-muted sm:hidden">Drag frame to move</span>
             <button type="button" onClick={cancelCapture} className="btn-secondary !min-h-8 !px-3 !text-[11px]">Cancel</button>
             <button
               type="button"

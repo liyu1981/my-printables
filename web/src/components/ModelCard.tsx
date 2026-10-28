@@ -17,7 +17,7 @@ export function ModelCard({ model }: { model: Model }) {
       </Link>
       <Link to={modelUrl(model)} className="relative block aspect-[4/3] overflow-hidden bg-canvas">
         {cover ? (
-          <img src={cover} alt={model.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-150 group-hover:scale-[1.02]" />
+          <img src={cover} alt={model.title} loading="lazy" className="h-full w-full object-contain transition-transform duration-150 group-hover:scale-[1.02]" />
         ) : (
           <div className="flex h-full items-center justify-center bg-[linear-gradient(135deg,#fff1ea,#f5f5f5)]">
             <Box className="h-12 w-12 text-brand/50" strokeWidth={1.1} />

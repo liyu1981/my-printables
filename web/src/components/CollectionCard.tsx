@@ -10,7 +10,7 @@ export function CollectionCard({ collection }: { collection: Collection }) {
       <div className="grid aspect-[4/3] grid-cols-2 grid-rows-2 gap-px bg-line">
         {[0, 1, 2, 3].map((i) => {
           const cover = covers[i]
-          return cover ? <img key={i} src={imageUrl(cover.modelId, cover.imageId, 'thumb')} alt="" loading="lazy" className="h-full w-full object-cover" /> : <div key={i} className="flex items-center justify-center bg-canvas"><span className="h-4 w-4 border border-line-strong" /></div>
+          return cover ? <img key={i} src={imageUrl(cover.modelId, cover.imageId, 'thumb')} alt="" loading="lazy" className="h-full w-full bg-canvas object-contain" /> : <div key={i} className="flex items-center justify-center bg-canvas"><span className="h-4 w-4 border border-line-strong" /></div>
         })}
       </div>
       <div className="flex flex-1 flex-col p-3">
