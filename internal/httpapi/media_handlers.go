@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -24,6 +25,8 @@ import (
 	"myprintables/internal/store"
 )
 
+var gcodeCommand = regexp.MustCompile(`(?m)^\s*G0?[0-3](\s|[A-Z]|$)`)
+
 var attachmentMime = map[string]string{
 	".pdf": "application/pdf",
 	".txt": "text/plain; charset=utf-8",
@@ -33,10 +36,11 @@ var attachmentMime = map[string]string{
 
 var formatByExt = map[string]string{
 	".stl": "stl", ".3mf": "3mf", ".obj": "obj", ".ply": "ply", ".glb": "glb", ".gltf": "gltf",
+	".gcode": "gcode", ".gco": "gcode", ".g": "gcode",
 }
 
 func (s *Server) allowedFormats() map[string]bool {
-	raw := s.st.Setting("allowed_formats", "stl,3mf,obj,ply,glb,gltf")
+	raw := s.st.Setting("allowed_formats", "stl,3mf,obj,ply,glb,gltf,gcode")
 	out := map[string]bool{}
 	for _, f := range strings.Split(raw, ",") {
 		if f = strings.TrimSpace(strings.ToLower(f)); f != "" {
@@ -44,7 +48,7 @@ func (s *Server) allowedFormats() map[string]bool {
 		}
 	}
 	if len(out) == 0 {
-		out = map[string]bool{"stl": true, "3mf": true, "obj": true, "ply": true, "glb": true, "gltf": true}
+		out = map[string]bool{"stl": true, "3mf": true, "obj": true, "ply": true, "glb": true, "gltf": true, "gcode": true}
 	}
 	return out
 }
@@ -78,7 +82,7 @@ func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 	ext := strings.ToLower(filepath.Ext(filename))
 	format, ok := formatByExt[ext]
 	if !ok || !s.allowedFormats()[format] {
-		writeErr(w, http.StatusBadRequest, "unsupported_format", "Unsupported model format. Use STL, 3MF, OBJ, PLY, GLB, or GLTF. STEP is not supported in v1.")
+		writeErr(w, http.StatusBadRequest, "unsupported_format", "Unsupported model format. Use STL, 3MF, OBJ, PLY, GLB, GLTF, or G-code. STEP is not supported in v1.")
 		return
 	}
 	if err := validate3DFile(tmpPath, format); err != nil {
@@ -502,6 +506,22 @@ func validate3DFile(path, format string) error {
 		if !bytes.Equal(buf, []byte("ply")) {
 			return errors.New("PLY file has an invalid header")
 		}
+	case "gcode":
+		f, err := os.Open(path)
+		if err != nil {
+			return errors.New("G-code file is unreadable")
+		}
+		defer f.Close()
+		b, err := io.ReadAll(io.LimitReader(f, 2<<20))
+		if err != nil || len(b) == 0 {
+			return errors.New("G-code file is empty or unreadable")
+		}
+		if bytes.IndexByte(b, 0) >= 0 {
+			return errors.New("G-code file appears to be binary")
+		}
+		if !gcodeCommand.Match(b) {
+			return errors.New("G-code file does not contain any movement commands")
+		}
 	case "stl", "obj":
 		// STL can be binary or ASCII; OBJ is text. The 3D loader will provide
 		// a clear error if the geometry is malformed.
@@ -603,6 +623,8 @@ func contentTypeForFormat(format string) string {
 		return "model/gltf-binary"
 	case "gltf":
 		return "model/gltf+json"
+	case "gcode":
+		return "text/plain; charset=utf-8"
 	default:
 		return "application/octet-stream"
 	}

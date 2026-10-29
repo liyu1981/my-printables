@@ -239,7 +239,7 @@ Sections alternate white / `--color-surface-alt` with generous 64px vertical pad
   - "All Categories" heading 13px/700 uppercase; rows 40px with chevron, hover canvas.
   - "Show only models" checkboxes (featured, with makes, with contest award, exclude AI, exclude political)
     — adapt to NAS: "Featured", "Has preview", "Recently updated", "Most downloaded".
-  - Published date select; License select; File types checkboxes (STL, 3MF, OBJ, PLY, GLB, GLTF).
+  - Published date select; License select; File types checkboxes (STL, 3MF, OBJ, PLY, GLB, GLTF, GCODE).
   - Tag chips (top tags) and an active tag filter; tag pages are also linkable from model detail.
   - Apply immediately (URL-synced), "Clear all" text button; mobile: "Filters" button opens drawer with
     count badge; active filters as removable chips above the grid.
@@ -342,8 +342,8 @@ Reference: white canvas, orange model, minimal chrome, control pad top-left, clo
 
 Wizard with a left step list (desktop) / top progress (mobile); white panel, 1px border, 2px radius.
 
-1. **Files**: large dashed dropzone (canvas bg, 1px dashed line, cube icon), "Drop STL, 3MF, OBJ, PLY, or
-   GLB" + file picker. Files list with format badge, size, remove; progress bar per file. Mark one file as
+1. **Files**: large dashed dropzone (canvas bg, 1px dashed line, cube icon), "Drop STL, 3MF, OBJ, PLY, GLB, GLTF, or
+   GCODE" + file picker. Files list with format badge, size, remove; progress bar per file. Mark one file as
    default preview. STEP/STP is not offered in v1; if dropped, show "STEP import is coming later" and do
    not upload.
 2. **Images**: grid of image tiles; drag to reorder; set cover; upload; auto-generated 3D cover shown with a

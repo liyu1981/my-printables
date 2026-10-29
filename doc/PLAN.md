@@ -15,7 +15,7 @@ CLI tooling. It lets a household:
 
 - Create accounts (open registration by default), with one or more admins.
 - Optional email verification (off by default for personal use; SMTP configurable).
-- Upload and manage 3D models and their files (`STL`, `3MF`, `OBJ`, `PLY`, `GLB`/`GLTF`).
+- Upload and manage 3D models and their files (`STL`, `3MF`, `OBJ`, `PLY`, `GLB`/`GLTF`, `GCODE`).
 - Browse, search, filter, like, bookmark, and download models.
 - Preview models in the browser with rotate/zoom/pan, file switching, and fullscreen.
 - Keep models public by default, or restrict to signed-in users, or keep private.
@@ -45,7 +45,7 @@ Principles:
 - Public browse/search/filter/sort, model detail page, author profile page.
 - Likes, bookmarks, download counts, 1–5 star ratings, and comments (with one-level replies).
 - Tagging with a tag directory/filter page, plus user-created collections (public/members/private).
-- 3D preview for STL / 3MF / OBJ / PLY / GLB / GLTF; client-side auto cover render.
+- 3D preview for STL / 3MF / OBJ / PLY / GLB / GLTF, plus G-code toolpath preview; client-side auto cover render.
 - Image upload with resized derivatives; auto cover fallback if no images.
 - Admin dashboard: users, storage, settings, audit log, DB backup download, comment/collection moderation.
 - First-class CLI in the same binary: `serve`, `migrate status|up`, `admin create|list|verify-email|reset-password`,
@@ -534,6 +534,7 @@ $DATA_DIR/                 # default ./data
 | PLY | `.ply` | ✅ | ASCII + binary |
 | GLB | `.glb` | ✅ | Self-contained only |
 | GLTF | `.gltf` | ⚠️ | Only embedded buffers; external/texture URIs blocked |
+| GCODE | `.gcode`, `.gco`, `.g` | ✅ | Toolpath lines; extrusion orange, travel gray |
 | Others | — | ❌ | Reject with a clear "unsupported format" message |
 
 `STEP`/`STP`/`IGES` upload is rejected in v1. The file-format allowlist and upload UI omit STEP; CAD import

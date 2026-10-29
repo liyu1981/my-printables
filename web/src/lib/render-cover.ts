@@ -45,5 +45,6 @@ export function formatOf(filename: string): string {
   if (ext === 'ply') return 'ply'
   if (ext === 'glb') return 'glb'
   if (ext === 'gltf') return 'gltf'
+  if (ext === 'gcode' || ext === 'gco' || ext === 'g') return 'gcode'
   return ext
 }
