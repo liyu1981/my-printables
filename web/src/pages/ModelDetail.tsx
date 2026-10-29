@@ -117,7 +117,7 @@ export function ModelDetail() {
             ) : galleryItem?.kind === '3d' ? (
               <div className="aspect-[4/3] w-full">
                 <Suspense fallback={<div className="flex h-full items-center justify-center bg-canvas text-xs text-muted">Loading 3D preview…</div>}>
-                  <ModelPreview model={m} file={galleryItem.file} onOpen={() => { setViewerFileId(galleryItem.file.id); setViewerOpen(true) }} />
+                  <ModelPreview model={m} file={galleryItem.file} files={files} onOpen={(file) => { setViewerFileId(file.id); setViewerOpen(true) }} />
                 </Suspense>
               </div>
             ) : (

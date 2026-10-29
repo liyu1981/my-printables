@@ -5,7 +5,7 @@ import { OrbitControls } from 'three-stdlib'
 import { disposeObject, fitCameraToObject, loadModelObject, normalizeModel } from '../../lib/load-model'
 import { fileUrl, type Model, type ModelFile } from '../../lib/models'
 
-export default function ModelPreview({ model, file, onOpen }: { model: Model; file: ModelFile; onOpen: () => void }) {
+export default function ModelPreview({ model, file, files = [file], onOpen }: { model: Model; file: ModelFile; files?: ModelFile[]; onOpen: (file: ModelFile) => void }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef<THREE.Scene | null>(null)
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null)
@@ -15,6 +15,9 @@ export default function ModelPreview({ model, file, onOpen }: { model: Model; fi
   const rafRef = useRef(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [selected, setSelected] = useState<ModelFile>(file)
+
+  useEffect(() => { setSelected(file) }, [file.id])
 
   useEffect(() => {
     const container = containerRef.current
@@ -93,18 +96,18 @@ export default function ModelPreview({ model, file, onOpen }: { model: Model; fi
     let cancelled = false
     setLoading(true)
     setError('')
-    fetch(fileUrl(model.id, file.id), { credentials: 'same-origin' })
+    fetch(fileUrl(model.id, selected.id), { credentials: 'same-origin' })
       .then((res) => {
         if (!res.ok) throw new Error('Could not download this file.')
         return res.arrayBuffer()
       })
-      .then((data) => loadModelObject(data, file.format))
+      .then((data) => loadModelObject(data, selected.format))
       .then((object) => {
         if (cancelled) { disposeObject(object); return }
         const scene = sceneRef.current
         if (!scene) return
         if (currentRef.current) { scene.remove(currentRef.current); disposeObject(currentRef.current) }
-        const wrapper = normalizeModel(object, file.format)
+        const wrapper = normalizeModel(object, selected.format)
         scene.add(wrapper)
         currentRef.current = wrapper
         if (cameraRef.current && controlsRef.current) fitCameraToObject(cameraRef.current, controlsRef.current, wrapper, 1.45)
@@ -115,10 +118,10 @@ export default function ModelPreview({ model, file, onOpen }: { model: Model; fi
         if (!cancelled) { setError(err instanceof Error ? err.message : 'Preview unavailable.'); setLoading(false) }
       })
     return () => { cancelled = true }
-  }, [model.id, file.id, file.format])
+  }, [model.id, selected.id, selected.format])
 
   return (
-    <div ref={containerRef} className="relative h-full w-full touch-none" onDoubleClick={onOpen}>
+    <div ref={containerRef} className="relative h-full w-full touch-none" onDoubleClick={() => onOpen(selected)}>
       <div className="pointer-events-none absolute left-0 top-0 z-10 p-2">
         <span className="flex items-center gap-1 bg-ink/75 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-white"><Box className="h-3 w-3 text-brand" /> 3D Preview</span>
       </div>
@@ -133,14 +136,28 @@ export default function ModelPreview({ model, file, onOpen }: { model: Model; fi
           <Box className="h-8 w-8 text-line-strong" />
           <p className="text-xs font-semibold text-ink">Preview unavailable</p>
           <p className="max-w-xs text-[10px] text-muted">{error}</p>
-          <button type="button" onClick={onOpen} className="btn-secondary !min-h-8 !px-3 !text-[11px]">Open full viewer</button>
+          <button type="button" onClick={() => onOpen(selected)} className="btn-secondary !min-h-8 !px-3 !text-[11px]">Open full viewer</button>
         </div>
       )}
       <div className="pointer-events-none absolute bottom-2 left-2 z-10 bg-surface/90 px-2 py-1 text-[9px] text-muted">
         Drag to rotate · Scroll to zoom
       </div>
-      <div className="absolute bottom-2 right-2 z-10">
-        <button type="button" onClick={onOpen} className="flex items-center gap-1 bg-surface/95 px-2 py-1 text-[10px] font-semibold text-ink shadow-sm hover:bg-brand-soft" aria-label="Open fullscreen 3D viewer">
+      <div className="absolute bottom-2 right-2 z-10 flex max-w-[calc(100%-1rem)] items-center gap-1.5">
+        {files.length > 1 && (
+          <select
+            value={selected.id}
+            onChange={(e) => {
+              const next = files.find((f) => f.id === e.target.value)
+              if (next) setSelected(next)
+            }}
+            className="max-w-[190px] border border-line bg-surface/95 px-1.5 py-1 text-[10px] text-ink shadow-sm outline-none"
+            aria-label="Switch 3D file"
+            title="Switch 3D file"
+          >
+            {files.map((f) => <option key={f.id} value={f.id}>{f.filename}</option>)}
+          </select>
+        )}
+        <button type="button" onClick={() => onOpen(selected)} className="flex shrink-0 items-center gap-1 bg-surface/95 px-2 py-1 text-[10px] font-semibold text-ink shadow-sm hover:bg-brand-soft" aria-label="Open fullscreen 3D viewer">
           <Maximize2 className="h-3 w-3" /> Full viewer
         </button>
       </div>
