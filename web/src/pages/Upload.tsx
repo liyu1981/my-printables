@@ -5,31 +5,13 @@ import { useNavigate, useSearchParams } from 'react-router'
 import { authAtom } from '../atoms/auth'
 import { ErrorBox } from '../components/Form'
 import { DropZone } from '../components/DropZone'
-import { ApiError, del, formatBytes, patch, post, type User } from '../lib/api'
+import { ApiError, del, formatBytes, patch, post } from '../lib/api'
+import { uploadWithProgress } from '../lib/upload'
 import { getCategories, getModel, type Category, type Model } from '../lib/models'
 import { formatOf, renderCover } from '../lib/render-cover'
 
 type UploadState = { file: File; progress: number; error?: string }
 
-function uploadWithProgress(url: string, file: File, csrf: string, onProgress: (n: number) => void): Promise<any> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest()
-    xhr.open('POST', url)
-    xhr.withCredentials = true
-    xhr.setRequestHeader('X-CSRF-Token', csrf)
-    xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100)) }
-    xhr.onload = () => {
-      let body: any = null
-      try { body = JSON.parse(xhr.responseText) } catch { /* ignore */ }
-      if (xhr.status >= 200 && xhr.status < 300) resolve(body)
-      else reject(new ApiError(xhr.status, body?.error?.code ?? 'upload_failed', body?.error?.message ?? 'Upload failed.'))
-    }
-    xhr.onerror = () => reject(new ApiError(0, 'network', 'Upload failed.'))
-    const fd = new FormData()
-    fd.append('file', file, file.name)
-    xhr.send(fd)
-  })
-}
 
 export function Upload() {
   const [auth] = useAtom(authAtom)

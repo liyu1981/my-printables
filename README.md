@@ -11,6 +11,7 @@ and the administrative CLI.
 - Admin and user roles, sessions, password reset via admin UI/CLI
 - Models with multiple STL / 3MF / OBJ / PLY / GLB / GLTF files
 - G-code uploads with a toolpath viewer
+- Bulk folder import with a one-by-one confirmation queue
 - MCP server for LLMs with API-key authenticated read/create/update access
 - PDF/TXT/Markdown/ZIP attachments for assembly instructions and documentation
 - Public, members-only, and private visibility

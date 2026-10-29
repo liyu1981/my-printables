@@ -5,6 +5,7 @@ import { Check, Copy, KeyRound, Loader2, Trash2 } from 'lucide-react'
 import { authAtom } from '../atoms/auth'
 import { ErrorBox, Field, SuccessBox, TextArea, TextInput } from '../components/Form'
 import { ApiError, api, del, formatDate, patch, post, type User } from '../lib/api'
+import { FolderImport } from '../components/FolderImport'
 
 type APIKey = { id: string; name: string; prefix: string; createdAt: number; lastUsedAt: number | null }
 
@@ -206,6 +207,8 @@ export function Settings() {
           {apiKeys.length === 0 && <p className="p-4 text-xs text-muted">No API keys yet.</p>}
         </div>
       </section>
+
+      <FolderImport />
     </main>
   )
 }
