@@ -16,6 +16,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
@@ -23,6 +24,7 @@ import (
 	"myprintables/internal/config"
 	"myprintables/internal/httpapi"
 	"myprintables/internal/logging"
+	"myprintables/internal/mcpserver"
 	"myprintables/internal/store"
 )
 
@@ -56,7 +58,7 @@ func newRoot() *cobra.Command {
 	root.PersistentFlags().StringVar(&dataDirFlag, "data-dir", "", "data directory (default: $DATA_DIR or ./data)")
 	root.PersistentFlags().StringVar(&logLevel, "log-level", "", "log level: debug|info|warn|error")
 	root.PersistentFlags().BoolVar(&jsonOutput, "json", false, "machine-readable output where supported")
-	root.AddCommand(newServeCmd(), newMigrateCmd(), newAdminCmd(), newBackupCmd(), newVersionCmd())
+	root.AddCommand(newServeCmd(), newMigrateCmd(), newAdminCmd(), newBackupCmd(), newMCPCmd(), newVersionCmd())
 	return root
 }
 
@@ -212,6 +214,33 @@ func newMigrateCmd() *cobra.Command {
 		},
 	})
 	return cmd
+}
+
+func newMCPCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "mcp",
+		Short: "Run an MCP server over stdio",
+		Long:  "Serve the public MyPrintables library to an MCP client over stdio. Logs are written to stderr.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := loadConfig()
+			if err != nil {
+				return err
+			}
+			log := logging.SetupTo(cfg.LogLevel, os.Stderr)
+			st, err := store.Open(cfg)
+			if err != nil {
+				return err
+			}
+			defer st.Close()
+			if cfg.AutoMigrate {
+				if err := st.Migrate(); err != nil {
+					return err
+				}
+			}
+			srv := mcpserver.NewServer(cfg, st, log, nil)
+			return srv.Run(context.Background(), &mcp.StdioTransport{})
+		},
+	}
 }
 
 func newAdminCmd() *cobra.Command {

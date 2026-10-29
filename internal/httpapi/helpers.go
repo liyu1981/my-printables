@@ -6,9 +6,9 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
-	"io"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -32,15 +32,30 @@ const sessionTTL = 30 * 24 * time.Hour
 func (s *Server) optionalAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c, err := r.Cookie(sessionCookie)
-		if err != nil || c.Value == "" {
-			next.ServeHTTP(w, r)
-			return
+		if err == nil && c.Value != "" {
+			sess, err := s.st.SessionByToken(r.Context(), auth.TokenHash(c.Value))
+			if err == nil && sess.User.IsActive {
+				ctx := context.WithValue(r.Context(), sessionKey, &sess)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
 		}
-		sess, err := s.st.SessionByToken(r.Context(), auth.TokenHash(c.Value))
-		if err == nil && sess.User.IsActive {
-			ctx := context.WithValue(r.Context(), sessionKey, &sess)
-			next.ServeHTTP(w, r.WithContext(ctx))
-			return
+		// API keys are accepted for read-only HTTP requests (media, model
+		// metadata, and MCP-backed clients). Mutations still require a session
+		// and CSRF token.
+		if r.Method == http.MethodGet || r.Method == http.MethodHead {
+			authz := r.Header.Get("Authorization")
+			if strings.HasPrefix(authz, "Bearer ") {
+				token := strings.TrimSpace(strings.TrimPrefix(authz, "Bearer "))
+				key, user, err := s.st.APIKeyByHash(r.Context(), auth.TokenHash(token))
+				if err == nil && user.IsActive {
+					s.st.TouchAPIKey(r.Context(), key.ID)
+					sess := &store.Session{User: user}
+					ctx := context.WithValue(r.Context(), sessionKey, sess)
+					next.ServeHTTP(w, r.WithContext(ctx))
+					return
+				}
+			}
 		}
 		next.ServeHTTP(w, r)
 	})

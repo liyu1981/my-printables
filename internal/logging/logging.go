@@ -1,12 +1,17 @@
 package logging
 
 import (
+	"io"
 	"log/slog"
 	"os"
 	"strings"
 )
 
 func Setup(level string) *slog.Logger {
+	return SetupTo(level, os.Stdout)
+}
+
+func SetupTo(level string, w io.Writer) *slog.Logger {
 	var l slog.Level
 	switch strings.ToLower(strings.TrimSpace(level)) {
 	case "debug":
@@ -18,7 +23,7 @@ func Setup(level string) *slog.Logger {
 	default:
 		l = slog.LevelInfo
 	}
-	h := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: l})
+	h := slog.NewJSONHandler(w, &slog.HandlerOptions{Level: l})
 	logger := slog.New(h)
 	slog.SetDefault(logger)
 	return logger

@@ -62,6 +62,24 @@ Useful commands:
 ./bin/myprintables backup --out ./data/backups/app.db
 ```
 
+## MCP for LLMs
+
+Enable the MCP endpoint with:
+
+```sh
+export MCP_ENABLED=true
+# optional read-only public credential:
+export MCP_TOKEN="$(openssl rand -hex 32)"
+```
+
+Endpoint: `http://<host>:8200/mcp` with `Authorization: Bearer <credential>`. Use the Streamable HTTP
+transport.
+
+- Create **user API keys** in Settings → API keys for read/create/update access scoped to that user.
+- `MCP_TOKEN` is optional and grants read-only access to published public models.
+- MCP never exposes model deletion.
+- Set `APP_URL` to the externally reachable URL for usable file/image/attachment links.
+
 ## Data directory
 
 Keep `--data-dir` (default `./data`, env `DATA_DIR`) on a **local disk**. SQLite on SMB/NFS can corrupt.

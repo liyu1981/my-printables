@@ -11,6 +11,7 @@ and the administrative CLI.
 - Admin and user roles, sessions, password reset via admin UI/CLI
 - Models with multiple STL / 3MF / OBJ / PLY / GLB / GLTF files
 - G-code uploads with a toolpath viewer
+- MCP server for LLMs with API-key authenticated read/create/update access
 - PDF/TXT/Markdown/ZIP attachments for assembly instructions and documentation
 - Public, members-only, and private visibility
 - Image uploads with automatic resizing and client-generated 3D covers
@@ -116,6 +117,89 @@ Important:
   docker restart myprintables
   ```
 - Back up the mapped folder regularly. It contains `app.db`, `media/`, and `backups/`.
+
+## MCP server for LLMs
+
+The app exposes an MCP server over Streamable HTTP, disabled by default.
+
+```sh
+MCP_ENABLED=true
+```
+
+Endpoint:
+
+```text
+http://<host>:8200/mcp
+Authorization: Bearer <credential>
+```
+
+Two credential types are supported:
+
+1. **User API keys** — create them in **Settings → API keys**. They act as that user and can read, create,
+   and update content through MCP.
+2. **Global `MCP_TOKEN`** — optional read-only credential for the public library. Useful for a shared
+   read-only assistant.
+
+```sh
+# Optional public read-only token
+MCP_TOKEN=replace-with-a-long-random-token
+```
+
+For Docker, add:
+
+```sh
+-e MCP_ENABLED=true
+# optional:
+-e MCP_TOKEN=replace-with-a-long-random-token
+```
+
+MCP clients should use the **Streamable HTTP** transport. User API keys are scoped to the user's permissions;
+private and members-only models are only visible to their owner/admin. The global token only sees published
+public models.
+
+### Read tools
+
+| Tool | Purpose |
+|---|---|
+| `search_models` | Search visible models by text/category/tag, with sort and limit |
+| `get_model` | Full model metadata, 3D file links, image links, and attachment links |
+| `list_categories` | Categories with counts |
+| `list_tags` | Tags |
+| `get_library_stats` | Public model/user/download/file counts |
+
+### Write tools (API keys only)
+
+| Tool | Purpose |
+|---|---|
+| `create_model` | Create a model owned by the user (metadata only) |
+| `update_model` | Update the user's model metadata, visibility, status, or tags |
+| `add_comment` | Comment or reply on a visible model |
+| `set_rating` / `remove_rating` | Manage the user's 1–5 star rating |
+| `toggle_like` / `toggle_bookmark` | Toggle the user's like/bookmark |
+| `create_collection` | Create a collection |
+| `add_to_collection` / `remove_from_collection` | Manage collection membership |
+
+**MCP never exposes a delete-model tool.** Deleting models remains a human-only action in the web UI/API.
+3D file uploads are also done through the web UI; MCP can create/update the metadata around them.
+
+API keys are shown only once when created. Revoke them at any time from Settings.
+
+For a local client using stdio instead of HTTP:
+
+```sh
+./bin/myprintables mcp --data-dir ./data
+```
+
+The stdio server has no user credential and is read-only/public only.
+
+Generate a global token with:
+
+```sh
+openssl rand -hex 32
+```
+
+Set `APP_URL` to the externally reachable base URL so file/image/attachment links returned by tools are usable
+by the LLM client. Put MCP behind HTTPS if exposing it beyond your LAN.
 
 ## Development
 

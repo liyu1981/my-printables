@@ -17,6 +17,8 @@ Base path: `/api`. Authenticated mutations require a session cookie plus `X-CSRF
 | POST | `/auth/password` |
 | POST | `/auth/verify-email` |
 | POST | `/auth/resend-verification` |
+| GET/POST | `/auth/api-keys` |
+| DELETE | `/auth/api-keys/{id}` |
 
 ## Models
 
@@ -88,3 +90,13 @@ Base path: `/api`. Authenticated mutations require a session cookie plus `X-CSRF
 - STEP/STP is rejected in v1.
 - Supported model formats: STL, 3MF, OBJ, PLY, GLB, GLTF, GCODE.
 - Public model media is cacheable; members/private media is private-cache only.
+
+## MCP
+
+| Transport | Endpoint |
+|---|---|
+| Streamable HTTP | `/mcp` (requires `Authorization: Bearer <user API key or MCP_TOKEN>`, `MCP_ENABLED=true`) |
+| stdio | `myprintables mcp --data-dir ./data` |
+
+MCP accepts `Authorization: Bearer <user API key>` for scoped read/create/update tools, or `MCP_TOKEN` for
+read-only public access. MCP does not expose model deletion.

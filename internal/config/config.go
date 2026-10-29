@@ -30,6 +30,9 @@ type Config struct {
 	SMTPFrom     string
 	SMTPTLS      bool
 
+	MCPEnabled bool
+	MCPToken   string
+
 	JSON bool
 }
 
@@ -54,6 +57,8 @@ func Load() (Config, error) {
 		SMTPPassword:             getString("SMTP_PASSWORD", ""),
 		SMTPFrom:                 getString("SMTP_FROM", "MyPrintables <no-reply@localhost>"),
 		SMTPTLS:                  getBool("SMTP_TLS", true),
+		MCPEnabled:               getBool("MCP_ENABLED", false),
+		MCPToken:                 getString("MCP_TOKEN", ""),
 	}
 	if c.DataDir == "" {
 		c.DataDir = "./data"

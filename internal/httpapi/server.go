@@ -14,6 +14,7 @@ import (
 
 	"myprintables/internal/config"
 	"myprintables/internal/email"
+	"myprintables/internal/mcpserver"
 	"myprintables/internal/storage"
 	"myprintables/internal/store"
 	"myprintables/internal/web"
@@ -26,10 +27,11 @@ type Server struct {
 	mail    email.Sender
 	limiter *rateLimiter
 	fs      *storage.Store
+	mcp     http.Handler
 }
 
 func New(cfg *config.Config, st *store.Store, log *slog.Logger) *Server {
-	return &Server{cfg: cfg, st: st, log: log, mail: email.New(*cfg, log), limiter: newRateLimiter(), fs: storage.New(cfg.DataDir)}
+	return &Server{cfg: cfg, st: st, log: log, mail: email.New(*cfg, log), limiter: newRateLimiter(), fs: storage.New(cfg.DataDir), mcp: mcpserver.NewHTTP(*cfg, st, log)}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -39,6 +41,9 @@ func (s *Server) Handler() http.Handler {
 	r.Use(s.recoverer)
 	r.Use(s.sameOrigin)
 	r.Use(s.optionalAuth)
+	if s.mcp != nil {
+		r.Handle("/mcp", s.mcp)
+	}
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		if err := s.st.DB.PingContext(r.Context()); err != nil {
 			writeErr(w, http.StatusServiceUnavailable, "db_unavailable", "database unavailable")

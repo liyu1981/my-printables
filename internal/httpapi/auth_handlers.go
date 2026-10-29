@@ -59,6 +59,9 @@ func (s *Server) mountAuth(api chi.Router) {
 		p.Post("/auth/logout", s.handleLogout)
 		p.Patch("/auth/me", s.handlePatchMe)
 		p.Post("/auth/password", s.handlePassword)
+		p.Get("/auth/api-keys", s.handleListAPIKeys)
+		p.Post("/auth/api-keys", s.handleCreateAPIKey)
+		p.Delete("/auth/api-keys/{id}", s.handleDeleteAPIKey)
 	})
 
 	api.Group(func(a chi.Router) {
@@ -450,6 +453,57 @@ func (s *Server) handlePassword(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+func (s *Server) handleListAPIKeys(w http.ResponseWriter, r *http.Request) {
+	items, err := s.st.ListAPIKeys(r.Context(), currentUser(r).ID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal", "Could not load API keys.")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+func (s *Server) handleCreateAPIKey(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Name string `json:"name"`
+	}
+	if err := decodeJSON(r, &in); err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_request", "Invalid request.")
+		return
+	}
+	name := strings.TrimSpace(in.Name)
+	if len(name) < 1 || len(name) > 80 {
+		writeErr(w, http.StatusBadRequest, "validation", "API key name must be 1–80 characters.")
+		return
+	}
+	token, err := auth.NewToken(32)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal", "Could not create API key.")
+		return
+	}
+	key := "myp_" + token
+	prefix := key[:12]
+	k, err := s.st.CreateAPIKey(r.Context(), currentUser(r).ID, name, auth.TokenHash(key), prefix)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal", "Could not create API key.")
+		return
+	}
+	s.audit(r, currentUser(r).ID, "user.api_key_created", "api_key", k.ID, jsonMap(map[string]string{"name": name}))
+	writeJSON(w, http.StatusCreated, map[string]any{"key": key, "apiKey": k})
+}
+
+func (s *Server) handleDeleteAPIKey(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseID(w, r, "id")
+	if !ok {
+		return
+	}
+	if err := s.st.DeleteAPIKey(r.Context(), id, currentUser(r).ID); err != nil {
+		writeErr(w, http.StatusNotFound, "not_found", "API key not found.")
+		return
+	}
+	s.audit(r, currentUser(r).ID, "user.api_key_revoked", "api_key", id, `{}`)
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
 func (s *Server) handleAdminUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := s.st.ListUsers(r.Context(), strings.TrimSpace(r.URL.Query().Get("q")), 200)
 	if err != nil {
@@ -568,7 +622,9 @@ func (s *Server) handleAdminDeleteUser(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "internal", "Could not delete user.")
 		return
 	}
-	for _, p := range paths { s.fs.Remove(p) }
+	for _, p := range paths {
+		s.fs.Remove(p)
+	}
 	s.audit(r, self.ID, "admin.user_deleted", "user", id, `{}`)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
@@ -668,7 +724,9 @@ func (s *Server) handleAdminModels(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleAdminPatchModel(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseID(w, r, "id")
-	if !ok { return }
+	if !ok {
+		return
+	}
 	m, err := s.st.ModelByID(r.Context(), id, currentSession(r).User.ID)
 	if err != nil {
 		writeErr(w, http.StatusNotFound, "not_found", "Model not found.")
@@ -686,18 +744,24 @@ func (s *Server) handleAdminPatchModel(w http.ResponseWriter, r *http.Request) {
 	fields := map[string]any{}
 	if in.Visibility != nil {
 		if *in.Visibility != "public" && *in.Visibility != "members" && *in.Visibility != "private" {
-			writeErr(w, http.StatusBadRequest, "validation", "Invalid visibility."); return
+			writeErr(w, http.StatusBadRequest, "validation", "Invalid visibility.")
+			return
 		}
 		fields["visibility"] = *in.Visibility
 	}
 	if in.Status != nil {
 		if *in.Status != "draft" && *in.Status != "published" {
-			writeErr(w, http.StatusBadRequest, "validation", "Invalid status."); return
+			writeErr(w, http.StatusBadRequest, "validation", "Invalid status.")
+			return
 		}
 		fields["status"] = *in.Status
-		if *in.Status == "published" && m.PublishedAt == nil { fields["published_at"] = time.Now().Unix() }
+		if *in.Status == "published" && m.PublishedAt == nil {
+			fields["published_at"] = time.Now().Unix()
+		}
 	}
-	if in.Featured != nil { fields["featured"] = boolInt(*in.Featured) }
+	if in.Featured != nil {
+		fields["featured"] = boolInt(*in.Featured)
+	}
 	if err := s.st.UpdateModel(r.Context(), id, fields, nil); err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal", "Could not update model.")
 		return
@@ -709,13 +773,17 @@ func (s *Server) handleAdminPatchModel(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleAdminDeleteModel(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseID(w, r, "id")
-	if !ok { return }
+	if !ok {
+		return
+	}
 	paths, err := s.st.DeleteModel(r.Context(), id)
 	if err != nil {
 		writeErr(w, http.StatusNotFound, "not_found", "Model not found.")
 		return
 	}
-	for _, p := range paths { s.fs.Remove(p) }
+	for _, p := range paths {
+		s.fs.Remove(p)
+	}
 	s.audit(r, currentSession(r).User.ID, "admin.model_deleted", "model", id, `{}`)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
