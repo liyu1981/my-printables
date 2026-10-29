@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.1.5 — 2026-10-29
+
+### Features
+
+- MCP server over Streamable HTTP for LLM access
+- User API keys created from Settings, with one-time key display and revocation
+- API-key-scoped MCP read/create/update tools; model deletion is never exposed to MCP
+- API keys also authenticate read-only HTTP/media requests
+- Bulk folder import from Settings with recursive folder scanning and a one-by-one confirmation queue
+- Gallery 3D tile now opens the inline preview instead of the fullscreen viewer
+- Previous/next carousel controls in the gallery
+
+### Fixes
+
+- Footer version prefix normalization
+
 ## v0.1.4 — 2026-10-28
 
 ### Features

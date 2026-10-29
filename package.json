@@ -1,6 +1,6 @@
 {
   "name": "myprintables",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "packageManager": "pnpm@12.4.2",
   "engines": {
@@ -10,7 +10,7 @@
     "build": "pnpm build:web && pnpm build:go",
     "build:web": "pnpm --dir web build",
     "build:web:dev": "pnpm --dir web exec vite build --mode development",
-    "build:go": "CGO_ENABLED=0 go build -trimpath -ldflags \"-s -w -X myprintables/internal/cli.version=0.1.4 -X myprintables/internal/cli.commit=$(git rev-parse --short HEAD 2>/dev/null || echo none) -X myprintables/internal/cli.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)\" -o bin/myprintables ./cmd/myprintables",
+    "build:go": "CGO_ENABLED=0 go build -trimpath -ldflags \"-s -w -X myprintables/internal/cli.version=0.1.5 -X myprintables/internal/cli.commit=$(git rev-parse --short HEAD 2>/dev/null || echo none) -X myprintables/internal/cli.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)\" -o bin/myprintables ./cmd/myprintables",
     "build:go:dev": "go build -gcflags=\"all=-N -l\" -o tmp/myprintables ./cmd/myprintables",
     "dev": "go run github.com/air-verse/air@v1.67.4 -c .air.toml",
     "dev:web": "pnpm --dir web dev",
