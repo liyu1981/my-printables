@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.1.4 — 2026-10-28
+
+### Features
+
+- G-code upload support for `.gcode`, `.gco`, and `.g` files
+- G-code toolpath viewer with extrusion and travel paths
+- G-code arc support plus absolute/relative coordinate, unit, homing, and position-reset handling
+- G-code files work with inline preview, fullscreen viewer, and generated covers
+
+### Fixes
+
+- Footer no longer renders duplicate version prefixes such as `vv0.1.3`
+
 ## v0.1.3 — 2026-10-28
 
 ### Features
