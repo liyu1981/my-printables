@@ -6,6 +6,8 @@ import { Logo } from './Logo'
 export function Footer() {
   const [auth] = useAtom(authAtom)
   const settings = auth.settings
+  const rawVersion = settings.version || 'dev'
+  const version = rawVersion.toLowerCase() === 'dev' ? 'dev' : `v${rawVersion.replace(/^v/i, '')}`
   return (
     <footer className="mt-16 border-t border-line bg-surface">
       <div className="container-page grid grid-cols-2 gap-8 py-12 md:grid-cols-4">
@@ -40,7 +42,7 @@ export function Footer() {
             <a href="https://www.reddit.com/r/myprintables/" target="_blank" rel="noopener noreferrer" className="hover:text-brand-strong">
               Reddit
             </a>
-            <span className="text-muted">v{settings.version}</span>
+            <span className="text-muted">{version}</span>
           </div>
         </div>
       </div>
