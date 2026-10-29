@@ -1,4 +1,4 @@
-import { Bookmark, Box, Download, Eye, FileBox, FileText, FolderPlus, Heart, Pencil, Share2, Star, Trash2 } from 'lucide-react'
+import { Bookmark, Box, ChevronLeft, ChevronRight, Download, Eye, FileBox, FileText, FolderPlus, Heart, Pencil, Share2, Star, Trash2 } from 'lucide-react'
 import { useAtom } from 'jotai'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
@@ -7,7 +7,7 @@ import rehypeSanitize from 'rehype-sanitize'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { authAtom } from '../atoms/auth'
 import { ApiError, del, formatBytes, formatDate, post } from '../lib/api'
-import { attachmentUrl, displayCount, fileUrl, getModel, imageUrl, modelUrl, visibilityLabel, type Model, type ModelDetail as Detail } from '../lib/models'
+import { attachmentUrl, displayCount, fileUrl, getModel, imageUrl, modelUrl, visibilityLabel, type Model, type ModelDetail as Detail, type ModelFile, type ModelImage } from '../lib/models'
 import { getModelCollections, type Collection } from '../lib/social'
 import { RatingInput } from '../components/RatingInput'
 import { Comments } from '../components/Comments'
@@ -16,6 +16,20 @@ import { AddToCollection } from '../components/AddToCollection'
 const ModelViewer = lazy(() => import('../components/viewer/ModelViewer'))
 const ModelPreview = lazy(() => import('../components/viewer/ModelPreview'))
 
+type GalleryItem = { kind: 'image'; image: ModelImage } | { kind: '3d'; file: ModelFile }
+
+function buildGalleryItems(images: ModelImage[], preview?: ModelFile): GalleryItem[] {
+  const items: GalleryItem[] = []
+  if (images.length === 0) {
+    if (preview) items.push({ kind: '3d', file: preview })
+    return items
+  }
+  items.push({ kind: 'image', image: images[0] })
+  if (preview) items.push({ kind: '3d', file: preview })
+  for (const image of images.slice(1)) items.push({ kind: 'image', image })
+  return items
+}
+
 export function ModelDetail() {
   const { id = '' } = useParams()
   const [params] = useSearchParams()
@@ -23,7 +37,7 @@ export function ModelDetail() {
   const navigate = useNavigate()
   const [detail, setDetail] = useState<Detail | null>(null)
   const [error, setError] = useState('')
-  const [activeImage, setActiveImage] = useState(0)
+  const [galleryIndex, setGalleryIndex] = useState(0)
   const [tab, setTab] = useState<'details' | 'files' | 'comments' | 'collections' | 'related'>('details')
   const [related, setRelated] = useState<Model[]>([])
   const [collections, setCollections] = useState<Collection[]>([])
@@ -37,7 +51,7 @@ export function ModelDetail() {
     setError('')
     getModel(id).then((d) => {
       setDetail(d)
-      setActiveImage(0)
+      setGalleryIndex(0)
       fetch(`/api/models/${d.model.id}/related`).then((r) => r.json()).then((x) => setRelated(x.items ?? [])).catch(() => {})
       getModelCollections(d.model.id).then((x) => setCollections(x.items)).catch(() => {})
     }).catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load model.'))
@@ -61,6 +75,12 @@ export function ModelDetail() {
   const canEdit = detail.canEdit
   const isAuthed = !!auth.user
   const csrf = auth.csrf
+  const galleryItems = buildGalleryItems(images, preview)
+  const galleryItem = galleryItems[Math.min(galleryIndex, galleryItems.length - 1)]
+  function moveGallery(delta: number) {
+    if (galleryItems.length < 2) return
+    setGalleryIndex((i) => (i + delta + galleryItems.length) % galleryItems.length)
+  }
 
   async function toggle(kind: 'like' | 'bookmark') {
     if (!isAuthed) { navigate(`/login?next=${encodeURIComponent(location.pathname)}`); return }
@@ -92,43 +112,44 @@ export function ModelDetail() {
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
         <div>
           <div className="relative overflow-hidden border border-line bg-canvas">
-            {images.length > 0 ? (
-              <img src={imageUrl(m.id, images[activeImage >= images.length ? 0 : activeImage].id, 'large')} alt={m.title} className="aspect-[4/3] w-full object-contain" />
-            ) : preview ? (
+            {galleryItem?.kind === 'image' ? (
+              <img src={imageUrl(m.id, galleryItem.image.id, 'large')} alt={m.title} className="aspect-[4/3] w-full object-contain" />
+            ) : galleryItem?.kind === '3d' ? (
               <div className="aspect-[4/3] w-full">
                 <Suspense fallback={<div className="flex h-full items-center justify-center bg-canvas text-xs text-muted">Loading 3D preview…</div>}>
-                  <ModelPreview model={m} file={preview} onOpen={() => { setViewerFileId(preview.id); setViewerOpen(true) }} />
+                  <ModelPreview model={m} file={galleryItem.file} onOpen={() => { setViewerFileId(galleryItem.file.id); setViewerOpen(true) }} />
                 </Suspense>
               </div>
             ) : (
               <div className="flex aspect-[4/3] items-center justify-center bg-[linear-gradient(135deg,#fff1ea,#f5f5f5)]"><Box className="h-20 w-20 text-brand/40" strokeWidth={1} /></div>
             )}
+            {galleryItems.length > 1 && (
+              <>
+                <button type="button" onClick={() => moveGallery(-1)} className="absolute left-2 top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center border border-line bg-surface/95 text-ink shadow-sm hover:bg-brand-soft" aria-label="Previous gallery item"><ChevronLeft className="h-5 w-5" /></button>
+                <button type="button" onClick={() => moveGallery(1)} className="absolute right-2 top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center border border-line bg-surface/95 text-ink shadow-sm hover:bg-brand-soft" aria-label="Next gallery item"><ChevronRight className="h-5 w-5" /></button>
+              </>
+            )}
             {m.status === 'draft' && <span className="absolute left-3 top-3 z-20 bg-ink px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white">Draft</span>}
             <span className="absolute right-3 top-3 z-20 rounded-[2px] bg-white/90 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-ink">{visibilityLabel(m.visibility)}</span>
           </div>
-          {(images.length > 0 || preview) && (
+          {galleryItems.length > 0 && (
             <div className="mt-2 flex gap-2 overflow-x-auto">
-              {images.slice(0, 1).map((im) => (
-                <button key={im.id} onClick={() => setActiveImage(0)} className={`shrink-0 border-2 ${activeImage === 0 ? 'border-brand' : 'border-transparent'}`}>
-                  <img src={imageUrl(m.id, im.id, 'thumb')} alt="" className="h-20 w-28 object-cover" />
+              {galleryItems.map((item, i) => item.kind === 'image' ? (
+                <button key={`image-${item.image.id}`} onClick={() => setGalleryIndex(i)} className={`shrink-0 border-2 ${galleryIndex === i ? 'border-brand' : 'border-transparent'}`}>
+                  <img src={imageUrl(m.id, item.image.id, 'thumb')} alt="" className="h-20 w-28 object-cover" />
                 </button>
-              ))}
-              {preview && (
+              ) : (
                 <button
+                  key={`3d-${item.file.id}`}
                   type="button"
-                  onClick={() => { setViewerFileId(preview.id); setViewerOpen(true) }}
-                  className="group relative flex h-20 w-28 shrink-0 flex-col items-center justify-center border-2 border-transparent bg-[radial-gradient(circle_at_50%_30%,#3a2118_0%,#1f2124_62%)] text-white hover:border-brand"
-                  aria-label={`Open 3D viewer for ${preview.filename}`}
-                  title={`View ${preview.filename} in 3D`}
+                  onClick={() => setGalleryIndex(i)}
+                  className={`group relative flex h-20 w-28 shrink-0 flex-col items-center justify-center border-2 bg-[radial-gradient(circle_at_50%_30%,#3a2118_0%,#1f2124_62%)] text-white hover:border-brand ${galleryIndex === i ? 'border-brand' : 'border-transparent'}`}
+                  aria-label={`Show 3D preview for ${item.file.filename}`}
+                  title={`Show ${item.file.filename} in the gallery`}
                 >
                   <Box className="h-7 w-7 text-brand transition-transform group-hover:scale-110" />
                   <span className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-white/80">View 3D</span>
-                  <span className="absolute right-1 top-1 bg-brand px-1 py-0.5 text-[8px] font-bold uppercase text-white">{preview.format}</span>
-                </button>
-              )}
-              {images.slice(1).map((im, i) => (
-                <button key={im.id} onClick={() => setActiveImage(i + 1)} className={`shrink-0 border-2 ${activeImage === i + 1 ? 'border-brand' : 'border-transparent'}`}>
-                  <img src={imageUrl(m.id, im.id, 'thumb')} alt="" className="h-20 w-28 object-cover" />
+                  <span className="absolute right-1 top-1 bg-brand px-1 py-0.5 text-[8px] font-bold uppercase text-white">{item.file.format}</span>
                 </button>
               ))}
             </div>
@@ -253,7 +274,7 @@ export function ModelDetail() {
       </div>
       {viewerOpen && (
         <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-white text-sm text-muted">Loading 3D viewer…</div>}>
-          <ModelViewer model={m} files={files} initialFileId={viewerFileId} onClose={() => setViewerOpen(false)} canEdit={canEdit} onImageSaved={async () => { const updated = await getModel(m.id); setDetail(updated); const uploads = (updated.model.images ?? []).filter((im) => im.kind === 'upload'); setActiveImage(Math.max(0, uploads.length - 1)) }} />
+          <ModelViewer model={m} files={files} initialFileId={viewerFileId} onClose={() => setViewerOpen(false)} canEdit={canEdit} onImageSaved={async () => { const updated = await getModel(m.id); setDetail(updated); setGalleryIndex(0) }} />
         </Suspense>
       )}
       <AddToCollection modelId={m.id} open={addOpen} onClose={() => setAddOpen(false)} />
