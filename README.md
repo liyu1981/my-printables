@@ -273,3 +273,20 @@ myprintables admin reset-password --email you@example.com
 myprintables backup --out ./data/backups/app.db
 myprintables version
 ```
+
+## License
+
+MyPrintables is released under the [MIT License](LICENSE).
+
+### Third-party notices
+
+- **CubbySlicer** — AGPL-3.0-or-later. The pinned source is in
+  [`third_party/cubbyslicer`](third_party/cubbyslicer); its license is included there. The slicer is served
+  as a separate app under `/slicer/` and is not merged into the MyPrintables source.
+- **Slicer engine artifacts** — OrcaSlicer / preFlight / Full Spectrum WASM builds retain their upstream
+  licenses. They are staged by `scripts/sync-cubby-engines.mjs` and are not covered by the MIT license.
+- **occt-import-js** — LGPL-2.1. Used for browser-side STEP tessellation; license text is in
+  `web/node_modules/occt-import-js/LICENSE.md` after dependency installation.
+
+Other dependencies remain under their respective upstream licenses. If you redistribute a built binary,
+keep this notice and the applicable third-party license/source information.
