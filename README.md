@@ -115,7 +115,7 @@ Notes:
 docker pull ghcr.io/liyu1981/my-printables:latest
 
 # or pin a release
-docker pull ghcr.io/liyu1981/my-printables:v0.1.6
+docker pull ghcr.io/liyu1981/my-printables:v0.1.7
 ```
 
 Run the published image with persistent storage:

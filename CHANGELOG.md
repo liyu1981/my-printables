@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.1.7 — 2026-10-30
+
+### Fixes
+
+- **Slice in CubbySlicer** now opens a file picker when a model has more than one slicer-supported 3D file
+- The picker lists every STL/3MF/OBJ/STEP file with its filename, format, and default-preview marker
+- Selecting a picker entry opens that exact file in CubbySlicer and closes the menu
+- Models with a single slicer-supported file keep the direct one-click Slice action
+- Per-file Slice actions in the Files tab remain available
+
+### Documentation
+
+- Refreshed the README with grouped feature sections for models, social features, administration, and deployment
+- Added a supported-format matrix covering upload, inline preview, and CubbySlicer support
+- Documented STEP/OpenCascade previews, inline gallery navigation, file switching, G-code toolpaths, MCP, API keys, and bulk import
+- Added CubbySlicer submodule initialization to the source build instructions
+
 ## v0.1.6 — 2026-10-30
 
 ### Features
