@@ -35,7 +35,7 @@ func viewerFrom(ctx context.Context) *store.User {
 
 func NewServer(cfg config.Config, st *store.Store, log *slog.Logger, viewer *store.User) *mcp.Server {
 	s := &Server{cfg: cfg, st: st, viewer: viewer}
-	server := mcp.NewServer(&mcp.Implementation{Name: "myprintables", Version: "1.0.0"}, nil)
+	server := mcp.NewServer(&mcp.Implementation{Name: "myprintables", Version: "1.0.0"}, &mcp.ServerOptions{Logger: log})
 	s.addTools(server)
 	return server
 }
@@ -630,8 +630,9 @@ func (s *Server) modelURL(m store.Model) string {
 }
 
 func truncate(s string, n int) string {
-	if len(s) <= n {
+	runes := []rune(s)
+	if len(runes) <= n {
 		return s
 	}
-	return s[:n] + "…"
+	return string(runes[:n]) + "…"
 }

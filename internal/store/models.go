@@ -52,55 +52,55 @@ type Tag struct {
 }
 
 type ModelAttachment struct {
-	ID           string `json:"id"`
-	ModelID      string `json:"-"`
-	Filename     string `json:"filename"`
-	MimeType     string `json:"mimeType"`
-	SizeBytes    int64  `json:"sizeBytes"`
-	SHA256       string `json:"sha256"`
-	SortOrder    int    `json:"sortOrder"`
-	CreatedAt    int64  `json:"createdAt"`
-	StorageRel   string `json:"-"`
+	ID         string `json:"id"`
+	ModelID    string `json:"-"`
+	Filename   string `json:"filename"`
+	MimeType   string `json:"mimeType"`
+	SizeBytes  int64  `json:"sizeBytes"`
+	SHA256     string `json:"sha256"`
+	SortOrder  int    `json:"sortOrder"`
+	CreatedAt  int64  `json:"createdAt"`
+	StorageRel string `json:"-"`
 }
 
 type Model struct {
-	ID              string `json:"id"`
-	OwnerID         string `json:"ownerId"`
-	OwnerUsername   string `json:"ownerUsername"`
-	OwnerName       string `json:"ownerName"`
-	Title           string `json:"title"`
-	Slug            string `json:"slug"`
-	Description     string `json:"description"`
-	CategoryID      string `json:"categoryId"`
-	CategoryName    string `json:"categoryName"`
-	CategorySlug    string `json:"categorySlug"`
-	License         string `json:"license"`
-	SourceURL       string `json:"sourceUrl"`
-	Visibility      string `json:"visibility"`
-	Status          string `json:"status"`
-	Featured        bool   `json:"featured"`
-	DownloadCount   int64  `json:"downloadCount"`
-	LikeCount       int64  `json:"likeCount"`
-	BookmarkCount   int64  `json:"bookmarkCount"`
-	ViewCount       int64  `json:"viewCount"`
-	CommentCount    int64  `json:"commentCount"`
-	RatingCount     int64  `json:"ratingCount"`
-	RatingAvg       float64 `json:"ratingAvg"`
-	CollectionCount int64  `json:"collectionCount"`
-	CoverImageID    string `json:"coverImageId"`
-	ImageCount      int    `json:"imageCount"`
-	FileFormats     string `json:"fileFormats"`
-	FileCount       int    `json:"fileCount"`
-	Liked           bool   `json:"liked"`
-	Bookmarked      bool   `json:"bookmarked"`
-	MyRating        int    `json:"myRating"`
-	CreatedAt       int64  `json:"createdAt"`
-	UpdatedAt       int64  `json:"updatedAt"`
-	PublishedAt     *int64 `json:"publishedAt"`
-	Files           []ModelFile `json:"files,omitempty"`
-	Images          []ModelImage `json:"images,omitempty"`
+	ID              string            `json:"id"`
+	OwnerID         string            `json:"ownerId"`
+	OwnerUsername   string            `json:"ownerUsername"`
+	OwnerName       string            `json:"ownerName"`
+	Title           string            `json:"title"`
+	Slug            string            `json:"slug"`
+	Description     string            `json:"description"`
+	CategoryID      string            `json:"categoryId"`
+	CategoryName    string            `json:"categoryName"`
+	CategorySlug    string            `json:"categorySlug"`
+	License         string            `json:"license"`
+	SourceURL       string            `json:"sourceUrl"`
+	Visibility      string            `json:"visibility"`
+	Status          string            `json:"status"`
+	Featured        bool              `json:"featured"`
+	DownloadCount   int64             `json:"downloadCount"`
+	LikeCount       int64             `json:"likeCount"`
+	BookmarkCount   int64             `json:"bookmarkCount"`
+	ViewCount       int64             `json:"viewCount"`
+	CommentCount    int64             `json:"commentCount"`
+	RatingCount     int64             `json:"ratingCount"`
+	RatingAvg       float64           `json:"ratingAvg"`
+	CollectionCount int64             `json:"collectionCount"`
+	CoverImageID    string            `json:"coverImageId"`
+	ImageCount      int               `json:"imageCount"`
+	FileFormats     string            `json:"fileFormats"`
+	FileCount       int               `json:"fileCount"`
+	Liked           bool              `json:"liked"`
+	Bookmarked      bool              `json:"bookmarked"`
+	MyRating        int               `json:"myRating"`
+	CreatedAt       int64             `json:"createdAt"`
+	UpdatedAt       int64             `json:"updatedAt"`
+	PublishedAt     *int64            `json:"publishedAt"`
+	Files           []ModelFile       `json:"files,omitempty"`
+	Images          []ModelImage      `json:"images,omitempty"`
 	Attachments     []ModelAttachment `json:"attachments,omitempty"`
-	Tags            []Tag `json:"tags,omitempty"`
+	Tags            []Tag             `json:"tags,omitempty"`
 }
 
 type ModelFilter struct {
@@ -121,11 +121,11 @@ type ModelFilter struct {
 }
 
 type ModelPage struct {
-	Items    []Model `json:"items"`
-	Page     int     `json:"page"`
-	PerPage  int     `json:"perPage"`
-	Total    int     `json:"total"`
-	TotalPages int   `json:"totalPages"`
+	Items      []Model `json:"items"`
+	Page       int     `json:"page"`
+	PerPage    int     `json:"perPage"`
+	Total      int     `json:"total"`
+	TotalPages int     `json:"totalPages"`
 }
 
 const modelSelect = `SELECT m.id,m.owner_id,m.title,m.slug,m.description,COALESCE(m.category_id,''),

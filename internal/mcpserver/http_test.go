@@ -92,10 +92,6 @@ func TestHTTPMCP(t *testing.T) {
 		t.Fatalf("search result = %s", b)
 	}
 
-	if err := st.CreateUser(context.Background(), u, "unused"); err != nil {
-		_ = err
-	}
-
 	tools, err := session.ListTools(ctx, nil)
 	if err != nil {
 		t.Fatal(err)

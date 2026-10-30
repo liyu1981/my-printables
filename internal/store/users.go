@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/oklog/ulid/v2"
+	"modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
 )
 
 var ErrNotFound = errors.New("not found")
@@ -59,7 +61,7 @@ func (s *Store) CreateUser(ctx context.Context, u User, passwordHash string) err
 		u.ID, strings.ToLower(u.Email), u.Username, u.DisplayName, passwordHash, u.Role, u.Bio,
 		boolInt(u.IsActive), verified, now, now)
 	if err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+		if isUniqueViolation(err) {
 			return ErrConflict
 		}
 		return err
@@ -128,7 +130,7 @@ func (s *Store) UpdateUser(ctx context.Context, id string, fields map[string]any
 	args = append(args, time.Now().Unix(), id)
 	res, err := s.DB.ExecContext(ctx, `UPDATE users SET `+strings.Join(sets, ", ")+` WHERE id = ?`, args...)
 	if err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+		if isUniqueViolation(err) {
 			return ErrConflict
 		}
 		return err
@@ -170,6 +172,9 @@ func (s *Store) ListUsers(ctx context.Context, q string, limit int) ([]User, err
 		u.IsActive = active == 1
 		out = append(out, u)
 	}
+	if out == nil {
+		out = []User{}
+	}
 	return out, rows.Err()
 }
 
@@ -183,6 +188,17 @@ func (s *Store) DeleteUser(ctx context.Context, id string) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+func isUniqueViolation(err error) bool {
+	var sqliteErr *sqlite.Error
+	if errors.As(err, &sqliteErr) {
+		switch sqliteErr.Code() {
+		case sqlite3.SQLITE_CONSTRAINT_UNIQUE, sqlite3.SQLITE_CONSTRAINT_PRIMARYKEY:
+			return true
+		}
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "unique")
 }
 
 func boolInt(v bool) int {

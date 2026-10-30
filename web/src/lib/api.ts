@@ -45,10 +45,10 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(path, { ...init, headers, credentials: 'same-origin' })
   if (res.status === 204) return undefined as T
   const text = await res.text()
-  let body: any = null
+  let body: unknown = null
   try { body = text ? JSON.parse(text) : null } catch { body = null }
   if (!res.ok) {
-    const err = body?.error
+    const err = (body as { error?: { code?: string; message?: string } } | null)?.error
     throw new ApiError(res.status, err?.code ?? 'request_failed', err?.message ?? `Request failed (${res.status}).`)
   }
   return body as T

@@ -24,11 +24,11 @@ type Comment struct {
 }
 
 type CommentPage struct {
-	Items    []Comment `json:"items"`
-	Page     int       `json:"page"`
-	PerPage  int       `json:"perPage"`
-	Total    int       `json:"total"`
-	TotalPages int     `json:"totalPages"`
+	Items      []Comment `json:"items"`
+	Page       int       `json:"page"`
+	PerPage    int       `json:"perPage"`
+	Total      int       `json:"total"`
+	TotalPages int       `json:"totalPages"`
 }
 
 type RatingSummary struct {
@@ -177,18 +177,20 @@ func (s *Store) CreateComment(ctx context.Context, c *Comment) error {
 
 func (s *Store) CommentByID(ctx context.Context, id string) (Comment, error) {
 	row := s.DB.QueryRowContext(ctx, `SELECT c.id,c.model_id,COALESCE(c.parent_id,''),c.body,c.created_at,c.updated_at,
-		c.deleted_at,u.id,c.user_id,u.username,u.display_name
+		c.deleted_at,u.id,u.username,u.display_name
 		FROM comments c JOIN users u ON u.id=c.user_id WHERE c.id = ?`, id)
 	var c Comment
 	var deleted sql.NullInt64
-	var userID string
-	if err := row.Scan(&c.ID, &c.ModelID, &c.ParentID, &c.Body, &c.CreatedAt, &c.UpdatedAt, &deleted, &c.UserID, &userID, &c.Username, &c.DisplayName); err != nil {
+	if err := row.Scan(&c.ID, &c.ModelID, &c.ParentID, &c.Body, &c.CreatedAt, &c.UpdatedAt, &deleted, &c.UserID, &c.Username, &c.DisplayName); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return c, ErrNotFound
 		}
 		return c, err
 	}
 	c.Deleted = deleted.Valid
+	if c.Deleted {
+		c.Body = ""
+	}
 	return c, nil
 }
 
@@ -289,7 +291,9 @@ func recalcRatingTx(ctx context.Context, tx *sql.Tx, modelID, userID string) (Ra
 		return RatingSummary{}, err
 	}
 	var mine int
-	_ = tx.QueryRowContext(ctx, `SELECT COALESCE((SELECT score FROM ratings WHERE user_id=? AND model_id=?),0)`, userID, modelID).Scan(&mine)
+	if err := tx.QueryRowContext(ctx, `SELECT COALESCE((SELECT score FROM ratings WHERE user_id=? AND model_id=?),0)`, userID, modelID).Scan(&mine); err != nil {
+		return RatingSummary{}, err
+	}
 	return RatingSummary{Avg: a, Count: count, My: mine}, nil
 }
 

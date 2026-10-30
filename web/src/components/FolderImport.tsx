@@ -3,7 +3,7 @@ import { useAtom } from 'jotai'
 import { useEffect, useRef, useState } from 'react'
 import { authAtom } from '../atoms/auth'
 import { ApiError, formatBytes, patch, post } from '../lib/api'
-import { scanDirectoryFiles, scanDirectoryHandle, type ImportCandidate } from '../lib/folder-import'
+import { scanDirectoryFiles, scanDirectoryHandle, type DirectoryPickerWindow, type ImportCandidate } from '../lib/folder-import'
 import { uploadWithProgress } from '../lib/upload'
 
 export function FolderImport() {
@@ -57,7 +57,7 @@ export function FolderImport() {
     }
     try {
       setScanning(true)
-      const handle = await (window as unknown as { showDirectoryPicker: (opts?: any) => Promise<any> }).showDirectoryPicker({ mode: 'read' })
+      const handle = await (window as DirectoryPickerWindow).showDirectoryPicker!({ mode: 'read' })
       const items = await scanDirectoryHandle(handle)
       startQueue(items)
     } catch (err) {
@@ -157,7 +157,7 @@ export function FolderImport() {
           multiple
           className="hidden"
           onChange={fallbackPicked}
-          {...({ webkitdirectory: '', directory: '' } as any)}
+          {...({ webkitdirectory: '', directory: '' } as unknown as React.InputHTMLAttributes<HTMLInputElement>)}
         />
       </div>
       {!supportsPicker && <p className="mt-2 text-[11px] text-muted">This browser uses the directory-upload fallback. Select the folder in the picker.</p>}

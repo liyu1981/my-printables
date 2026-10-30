@@ -72,9 +72,9 @@ func TestVisibilityFiltering(t *testing.T) {
 
 func TestSlugify(t *testing.T) {
 	cases := map[string]string{
-		"Hello, World!": "hello-world",
+		"Hello, World!":          "hello-world",
 		"  Under Desk / Cable  ": "under-desk-cable",
-		"!!!": "model",
+		"!!!":                    "model",
 	}
 	for in, want := range cases {
 		if got := Slugify(in); got != want {

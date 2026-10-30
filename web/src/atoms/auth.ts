@@ -1,5 +1,6 @@
 import { atom } from 'jotai'
 import { api, type AuthPayload, type SiteSettings, type User } from '../lib/api'
+import { MODEL_FORMATS } from '../lib/model-files'
 
 export type AuthState = {
   user: User | null
@@ -14,7 +15,7 @@ const emptySettings: SiteSettings = {
   emailVerificationEnabled: false,
   requireLoginToBrowse: false,
   maxUploadMB: 1024,
-  allowedFormats: 'stl,3mf,obj,ply,glb,gltf,gcode,step',
+  allowedFormats: MODEL_FORMATS.join(','),
   footerText: 'Self-hosted 3D model library.',
   version: 'dev',
 }

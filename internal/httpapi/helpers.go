@@ -2,21 +2,17 @@ package httpapi
 
 import (
 	"context"
-	"crypto/rand"
-	"database/sql"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
-
-	"github.com/go-chi/chi/v5"
 	"sync"
 	"time"
+
+	"github.com/go-chi/chi/v5"
 
 	"myprintables/internal/auth"
 	"myprintables/internal/store"
@@ -98,7 +94,7 @@ func (s *Server) csrf(next http.Handler) http.Handler {
 			return
 		}
 		got := r.Header.Get("X-CSRF-Token")
-		if got == "" || subtleCompare(got, sess.CSRFToken) == false {
+		if got == "" || !subtleCompare(got, sess.CSRFToken) {
 			writeErr(w, http.StatusForbidden, "csrf", "Invalid CSRF token.")
 			return
 		}
@@ -239,7 +235,8 @@ func decodeJSON(r *http.Request, dst any) error {
 	if err := dec.Decode(dst); err != nil {
 		return err
 	}
-	if dec.More() {
+	var extra any
+	if err := dec.Decode(&extra); !errors.Is(err, io.EOF) {
 		return errors.New("unexpected trailing data")
 	}
 	return nil
@@ -247,18 +244,6 @@ func decodeJSON(r *http.Request, dst any) error {
 
 func isUnique(err error) bool {
 	return errors.Is(err, store.ErrConflict)
-}
-
-func verifyPassword(password string) bool {
-	return len(password) >= 10
-}
-
-func tokenValue() (string, error) {
-	b := make([]byte, 24)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
 // rateLimiter is deliberately small and in-memory; it is a LAN app, not a
@@ -320,17 +305,7 @@ func parseID(w http.ResponseWriter, r *http.Request, key string) (string, bool) 
 	return id, true
 }
 
-func existsDB(db *sql.DB) bool { return db != nil }
-
-func fieldMessage(field, message string) map[string]any {
-	return map[string]any{"field": field, "message": message}
-}
-
 func jsonMap(v any) string {
 	b, _ := json.Marshal(v)
 	return string(b)
-}
-
-func fmtErr(format string, args ...any) error {
-	return fmt.Errorf(format, args...)
 }

@@ -32,14 +32,6 @@ func (s *Store) Abs(rel string) (string, error) {
 	return abs, nil
 }
 
-func (s *Store) ModelFilesDir(modelID string) string {
-	return s.Rel("media", "models", modelID, "files")
-}
-
-func (s *Store) ModelImagesDir(modelID, imageID string) string {
-	return s.Rel("media", "models", modelID, "images", imageID)
-}
-
 func (s *Store) TempFile(prefix string) (*os.File, error) {
 	dir := filepath.Join(s.Root, "tmp")
 	if err := os.MkdirAll(dir, 0o750); err != nil {

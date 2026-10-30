@@ -1,4 +1,5 @@
 import { ApiError, api } from './api'
+import { SLICER_FORMATS } from './model-files'
 
 export type Tag = { id: string; slug: string; name: string; count?: number }
 export type Category = { id: string; slug: string; name: string; icon: string; count: number }
@@ -80,7 +81,6 @@ export function fileUrl(modelId: string, fileId: string, download = false) {
 export function attachmentUrl(modelId: string, attachmentId: string, download = false) {
   return `/api/models/${modelId}/attachments/${attachmentId}/content${download ? '?download=1' : ''}`
 }
-export const SLICER_FORMATS = new Set(['stl', '3mf', 'obj', 'step'])
 export function canSlice(file: ModelFile): boolean {
   return SLICER_FORMATS.has(file.format)
 }

@@ -120,7 +120,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 		}
 	}
 	if cfg.AdminEmail != "" && cfg.AdminPassword != "" {
-		if err := ensureAdmin(st, cfg, cfg.AdminEmail, cfg.AdminPassword); err != nil {
+		if err := ensureAdmin(st, cfg.AdminEmail, cfg.AdminPassword); err != nil {
 			log.Warn("bootstrap admin failed", "error", err)
 		}
 	}
@@ -154,7 +154,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	}
 }
 
-func ensureAdmin(st *store.Store, cfg config.Config, email, password string) error {
+func ensureAdmin(st *store.Store, email, password string) error {
 	ctx := context.Background()
 	n, err := st.CountUsers(ctx)
 	if err != nil {
@@ -164,7 +164,7 @@ func ensureAdmin(st *store.Store, cfg config.Config, email, password string) err
 		return nil
 	}
 	if msg := auth.PasswordProblem(password); msg != "" {
-		return fmt.Errorf("%s", msg)
+		return errors.New(msg)
 	}
 	hash, err := auth.HashPassword(password)
 	if err != nil {
@@ -266,7 +266,7 @@ func newAdminCreateCmd() *cobra.Command {
 				return err
 			}
 			if msg := auth.PasswordProblem(password); msg != "" {
-				return fmt.Errorf("%s", msg)
+				return errors.New(msg)
 			}
 			if role != "admin" && role != "user" {
 				return fmt.Errorf("role must be admin or user")
@@ -391,7 +391,7 @@ func newAdminResetCmd() *cobra.Command {
 				return err
 			}
 			if msg := auth.PasswordProblem(password); msg != "" {
-				return fmt.Errorf("%s", msg)
+				return errors.New(msg)
 			}
 			hash, err := auth.HashPassword(password)
 			if err != nil {
@@ -400,7 +400,9 @@ func newAdminResetCmd() *cobra.Command {
 			if err := st.UpdateUser(cmd.Context(), u.ID, map[string]any{"password_hash": hash}); err != nil {
 				return err
 			}
-			_ = st.DeleteUserSessions(cmd.Context(), u.ID)
+			if err := st.DeleteUserSessions(cmd.Context(), u.ID); err != nil {
+				return fmt.Errorf("password updated but sessions could not be revoked: %w", err)
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "password reset for %s; all sessions revoked\n", u.Email)
 			if generate {
 				fmt.Fprintf(cmd.OutOrStdout(), "password: %s\n", password)

@@ -1,7 +1,6 @@
 import { FolderPlus, Loader2 } from 'lucide-react'
 import { useAtom } from 'jotai'
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router'
 import { authAtom } from '../atoms/auth'
 import { CollectionCard } from '../components/CollectionCard'
 import { ErrorBox } from '../components/Form'

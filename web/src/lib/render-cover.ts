@@ -36,16 +36,3 @@ export async function renderCover(file: File, format: string): Promise<Blob> {
   if (!blob) throw new Error('Could not render cover')
   return blob
 }
-
-export function formatOf(filename: string): string {
-  const ext = filename.toLowerCase().split('.').pop() ?? ''
-  if (ext === 'stl') return 'stl'
-  if (ext === '3mf') return '3mf'
-  if (ext === 'obj') return 'obj'
-  if (ext === 'ply') return 'ply'
-  if (ext === 'glb') return 'glb'
-  if (ext === 'gltf') return 'gltf'
-  if (ext === 'gcode' || ext === 'gco' || ext === 'g') return 'gcode'
-  if (ext === 'step' || ext === 'stp') return 'step'
-  return ext
-}

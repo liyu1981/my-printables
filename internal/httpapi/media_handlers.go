@@ -140,6 +140,7 @@ func (s *Server) handleDeleteFile(w http.ResponseWriter, r *http.Request) {
 	s.fs.Remove(path)
 	_, _ = s.st.DB.ExecContext(r.Context(), `UPDATE model_files SET is_preview = 1 WHERE model_id = ? AND id = (
 		SELECT id FROM model_files WHERE model_id = ? ORDER BY sort_order, created_at LIMIT 1)`, modelID, modelID)
+	s.audit(r, currentUser(r).ID, "model.file_deleted", "model", modelID, jsonMap(map[string]string{"fileId": fileID}))
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
@@ -222,6 +223,7 @@ func (s *Server) handleDeleteImage(w http.ResponseWriter, r *http.Request) {
 	for _, p := range paths {
 		s.fs.Remove(p)
 	}
+	s.audit(r, currentUser(r).ID, "model.image_deleted", "model", modelID, jsonMap(map[string]string{"imageId": imageID}))
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
@@ -392,7 +394,11 @@ func (s *Server) handleAttachmentContent(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	defer fh.Close()
-	stat, _ := fh.Stat()
+	stat, err := fh.Stat()
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "not_found", "Attachment not found.")
+		return
+	}
 	ct := a.MimeType
 	if ct == "" {
 		ct = mime.TypeByExtension(filepath.Ext(a.Filename))
@@ -516,18 +522,18 @@ func validate3DFile(path, format string) error {
 	case "gcode":
 		f, err := os.Open(path)
 		if err != nil {
-			return errors.New("G-code file is unreadable")
+			return errors.New("the G-code file is unreadable")
 		}
 		defer f.Close()
 		b, err := io.ReadAll(io.LimitReader(f, 2<<20))
 		if err != nil || len(b) == 0 {
-			return errors.New("G-code file is empty or unreadable")
+			return errors.New("the G-code file is empty or unreadable")
 		}
 		if bytes.IndexByte(b, 0) >= 0 {
-			return errors.New("G-code file appears to be binary")
+			return errors.New("the G-code file appears to be binary")
 		}
 		if !gcodeCommand.Match(b) {
-			return errors.New("G-code file does not contain any movement commands")
+			return errors.New("the G-code file does not contain any movement commands")
 		}
 	case "step":
 		f, err := os.Open(path)
@@ -571,7 +577,11 @@ func (s *Server) handleFileContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer fh.Close()
-	stat, _ := fh.Stat()
+	stat, err := fh.Stat()
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "not_found", "File not found.")
+		return
+	}
 	w.Header().Set("Content-Type", contentTypeForFormat(f.Format))
 	w.Header().Set("ETag", `"`+f.SHA256+`"`)
 	w.Header().Set("Cache-Control", cacheFor(m.Visibility)+", immutable")
@@ -622,7 +632,11 @@ func (s *Server) handleImageContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer fh.Close()
-	stat, _ := fh.Stat()
+	stat, err := fh.Stat()
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "not_found", "Image not found.")
+		return
+	}
 	w.Header().Set("Content-Type", mime.TypeByExtension(filepath.Ext(path)))
 	w.Header().Set("Cache-Control", cacheFor(m.Visibility)+", immutable")
 	w.Header().Set("Content-Disposition", "inline")

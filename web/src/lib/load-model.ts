@@ -174,10 +174,11 @@ function parseGcode(data: ArrayBuffer): THREE.Object3D {
 }
 
 let stepWorker: Worker | null = null
+let stepRequestID = 0
 
 function loadStep(data: ArrayBuffer): Promise<THREE.Object3D> {
   const worker = stepWorker ??= new Worker(new URL('./step.worker.ts', import.meta.url), { type: 'module', name: 'myprintables-step' })
-  const id = Math.floor(Math.random() * 1_000_000_000)
+  const id = ++stepRequestID
   return new Promise((resolve, reject) => {
     const onMessage = (event: MessageEvent<{ id: number; ok: boolean; meshes?: Array<{ positions: Float32Array; indices: Uint32Array }>; message?: string }>) => {
       if (event.data.id !== id) return
@@ -208,6 +209,8 @@ function loadStep(data: ArrayBuffer): Promise<THREE.Object3D> {
       event.preventDefault()
       worker.removeEventListener('message', onMessage)
       worker.removeEventListener('error', onError)
+      worker.terminate()
+      if (stepWorker === worker) stepWorker = null
       reject(new Error('The STEP importer crashed. The model may be too complex.'))
     }
     worker.addEventListener('message', onMessage)

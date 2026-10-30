@@ -1,6 +1,4 @@
-const MODEL_EXT = new Set(['stl', '3mf', 'obj', 'ply', 'glb', 'gltf', 'gcode', 'gco', 'g', 'step', 'stp'])
-const IMAGE_EXT = new Set(['jpg', 'jpeg', 'png', 'webp'])
-const ATTACHMENT_EXT = new Set(['pdf', 'txt', 'md', 'zip'])
+import { ATTACHMENT_EXT, IMAGE_EXT, MODEL_EXT, extensionOf } from './model-files'
 
 export type ImportCandidate = {
   id: string
@@ -11,12 +9,8 @@ export type ImportCandidate = {
   attachments: File[]
 }
 
-function ext(name: string): string {
-  return name.toLowerCase().split('.').pop() ?? ''
-}
-
 function classify(file: File): 'model' | 'image' | 'attachment' | null {
-  const e = ext(file.name)
+  const e = extensionOf(file.name)
   if (MODEL_EXT.has(e)) return 'model'
   if (IMAGE_EXT.has(e)) return 'image'
   if (ATTACHMENT_EXT.has(e)) return 'attachment'
@@ -38,20 +32,24 @@ function makeCandidate(path: string, files: File[]): ImportCandidate | null {
   return { id: path || name, path: path || name, name, models, images, attachments }
 }
 
+export type DirectoryPickerWindow = Window & {
+  showDirectoryPicker?: (options?: { mode?: 'read' | 'readwrite' }) => Promise<FileSystemDirectoryHandle>
+}
+
 /** Recursively walk a File System Access API directory handle. */
-export async function scanDirectoryHandle(root: any): Promise<ImportCandidate[]> {
+export async function scanDirectoryHandle(root: FileSystemDirectoryHandle): Promise<ImportCandidate[]> {
   const out: ImportCandidate[] = []
-  async function walk(dir: any, parent: string): Promise<void> {
+  async function walk(dir: FileSystemDirectoryHandle, parent: string): Promise<void> {
     const path = parent ? `${parent}/${dir.name}` : dir.name
     const direct: File[] = []
-    const children: any[] = []
+    const children: FileSystemDirectoryHandle[] = []
     for await (const [, entry] of dir.entries()) {
       if (entry.kind === 'directory') {
-        children.push(entry)
+        children.push(entry as FileSystemDirectoryHandle)
       } else if (entry.kind === 'file') {
         if (entry.name.startsWith('.')) continue
         try {
-          direct.push(await entry.getFile())
+          direct.push(await (entry as FileSystemFileHandle).getFile())
         } catch {
           // Skip files that cannot be read (permissions, deleted, etc.).
         }
@@ -84,8 +82,4 @@ export function scanDirectoryFiles(files: File[]): ImportCandidate[] {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([path, group]) => makeCandidate(path, group))
     .filter((c): c is ImportCandidate => c !== null)
-}
-
-export function supportedModel(name: string): boolean {
-  return MODEL_EXT.has(ext(name))
 }

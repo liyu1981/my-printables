@@ -64,6 +64,7 @@ func Process(srcPath, destDir, imageID string) (Result, error) {
 	src, err := imaging.Decode(f, imaging.AutoOrientation(true))
 	f.Close()
 	if err != nil {
+		os.Remove(origPath)
 		return res, fmt.Errorf("decode image: %w", err)
 	}
 	large := imaging.Fit(src, 1600, 1600, imaging.Lanczos)
@@ -75,6 +76,7 @@ func Process(srcPath, destDir, imageID string) (Result, error) {
 	largePath := filepath.Join(destDir, largeName)
 	thumbPath := filepath.Join(destDir, thumbName)
 	if err := imaging.Save(large, largePath, imaging.JPEGQuality(85)); err != nil {
+		os.Remove(origPath)
 		return res, err
 	}
 	thumb := imaging.Fit(src, 480, 480, imaging.Lanczos)
@@ -82,6 +84,8 @@ func Process(srcPath, destDir, imageID string) (Result, error) {
 		thumb = imaging.Clone(large)
 	}
 	if err := imaging.Save(thumb, thumbPath, imaging.JPEGQuality(82)); err != nil {
+		os.Remove(origPath)
+		os.Remove(largePath)
 		return res, err
 	}
 	return Result{
@@ -105,7 +109,12 @@ func copyFile(src, dst string) error {
 	}
 	if _, err := io.Copy(out, in); err != nil {
 		out.Close()
+		os.Remove(dst)
 		return err
 	}
-	return out.Close()
+	if err := out.Close(); err != nil {
+		os.Remove(dst)
+		return err
+	}
+	return nil
 }

@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/mail"
@@ -140,7 +139,11 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "internal", "Could not create account.")
 		return
 	}
-	u, _, _ = s.st.UserByEmail(r.Context(), u.Email)
+	u, _, err = s.st.UserByEmail(r.Context(), u.Email)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal", "Account was created, but could not be reloaded.")
+		return
+	}
 	csrf, err := s.newSession(w, r, u)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal", "Could not start session.")
@@ -247,7 +250,11 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "internal", "Could not create account.")
 		return
 	}
-	u, _, _ = s.st.UserByEmail(r.Context(), u.Email)
+	u, _, err = s.st.UserByEmail(r.Context(), u.Email)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal", "Account was created, but could not be reloaded.")
+		return
+	}
 	if verification {
 		if err := s.sendVerification(r.Context(), u); err != nil {
 			writeErr(w, http.StatusServiceUnavailable, "smtp_unavailable", "Account created, but the verification email could not be sent. Ask an admin to resend or verify it.")
@@ -590,7 +597,11 @@ func (s *Server) handleAdminPatchUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r, self.ID, "admin.user_updated", "user", target.ID, jsonMap(safeAuditFields(fields)))
-	u, _ := s.st.UserByID(r.Context(), target.ID)
+	u, err := s.st.UserByID(r.Context(), target.ID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal", "User was updated, but could not be reloaded.")
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"user": toUserDTO(u, true)})
 }
 
@@ -611,13 +622,17 @@ func (s *Server) handleAdminDeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 	if target.Role == "admin" {
 		var admins int
-		_ = s.st.DB.QueryRow(`SELECT COUNT(*) FROM users WHERE role = 'admin'`).Scan(&admins)
+		_ = s.st.DB.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM users WHERE role = 'admin'`).Scan(&admins)
 		if admins <= 1 {
 			writeErr(w, http.StatusBadRequest, "validation", "You cannot delete the last administrator.")
 			return
 		}
 	}
-	paths, _ := s.st.UserMediaPaths(r.Context(), id)
+	paths, err := s.st.UserMediaPaths(r.Context(), id)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal", "Could not load user media.")
+		return
+	}
 	if err := s.st.DeleteUser(r.Context(), id); err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal", "Could not delete user.")
 		return
@@ -649,6 +664,7 @@ func (s *Server) handleAdminUpdateSettings(w http.ResponseWriter, r *http.Reques
 		"default_visibility": true, "require_login_to_browse": true, "max_upload_mb": true,
 		"allowed_formats": true, "featured_model_ids": true, "footer_text": true,
 	}
+	updates := make(map[string]string, len(in))
 	for k, raw := range in {
 		if !allowed[k] {
 			writeErr(w, http.StatusBadRequest, "validation", fmt.Sprintf("Unknown setting %q.", k))
@@ -676,6 +692,9 @@ func (s *Server) handleAdminUpdateSettings(w http.ResponseWriter, r *http.Reques
 		case "allowed_formats":
 			value = strings.ToLower(strings.TrimSpace(value))
 		}
+		updates[k] = value
+	}
+	for k, value := range updates {
 		if err := s.st.SetSetting(k, value, currentSession(r).User.ID); err != nil {
 			writeErr(w, http.StatusInternalServerError, "internal", "Could not save settings.")
 			return
@@ -700,8 +719,8 @@ func (s *Server) handleAdminSMTPTest(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleAdminStats(w http.ResponseWriter, r *http.Request) {
 	var users, models int64
-	_ = s.st.DB.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&users)
-	_ = s.st.DB.QueryRow(`SELECT COUNT(*) FROM models`).Scan(&models)
+	_ = s.st.DB.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM users`).Scan(&users)
+	_ = s.st.DB.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM models`).Scan(&models)
 	files, mediaBytes := s.st.StorageStats(r.Context())
 	recent, _ := s.st.RecentDownloads(r.Context(), 1000)
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -767,7 +786,11 @@ func (s *Server) handleAdminPatchModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r, currentSession(r).User.ID, "admin.model_updated", "model", id, jsonMap(fields))
-	updated, _ := s.st.ModelByID(r.Context(), id, currentSession(r).User.ID)
+	updated, err := s.st.ModelByID(r.Context(), id, currentSession(r).User.ID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal", "Model was updated, but could not be reloaded.")
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"model": updated})
 }
 
@@ -887,5 +910,3 @@ func boolInt(v bool) int {
 	}
 	return 0
 }
-
-var _ = errors.Is

@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -10,12 +9,6 @@ import (
 
 	"myprintables/internal/store"
 )
-
-type commentDTO struct {
-	store.Comment
-	CanEdit   bool `json:"canEdit"`
-	CanDelete bool `json:"canDelete"`
-}
 
 func (s *Server) mountSocial(api chi.Router) {
 	api.Get("/models/{id}/comments", s.handleComments)
@@ -61,21 +54,7 @@ func (s *Server) handleComments(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "internal", "Could not load comments.")
 		return
 	}
-	u := currentUser(r)
-	if u == nil {
-		writeJSON(w, http.StatusOK, page)
-		return
-	}
-	for i := range page.Items {
-		page.Items[i] = decorateComment(page.Items[i], u, id)
-	}
 	writeJSON(w, http.StatusOK, page)
-}
-
-func decorateComment(c store.Comment, u *store.User, modelOwnerID string) store.Comment {
-	// Comment DTO permissions are computed on the client from IDs; this helper
-	// keeps the type stable for the existing JSON shape.
-	return c
 }
 
 func (s *Server) handleCreateComment(w http.ResponseWriter, r *http.Request) {
@@ -239,10 +218,18 @@ func (s *Server) handleCollections(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) canViewCollection(r *http.Request, c store.Collection) bool {
 	u := currentUser(r)
-	if u != nil && u.Role == "admin" { return true }
-	if u != nil && u.ID == c.OwnerID { return true }
-	if c.Visibility == "public" { return true }
-	if c.Visibility == "members" && u != nil { return c.Visibility == "members" }
+	if u != nil && u.Role == "admin" {
+		return true
+	}
+	if u != nil && u.ID == c.OwnerID {
+		return true
+	}
+	if c.Visibility == "public" {
+		return true
+	}
+	if c.Visibility == "members" {
+		return u != nil
+	}
 	return false
 }
 
@@ -302,7 +289,9 @@ func (s *Server) handleCreateCollection(w http.ResponseWriter, r *http.Request) 
 		writeErr(w, http.StatusBadRequest, "validation", "Collection name is required (max 80 chars).")
 		return
 	}
-	if in.Visibility == "" { in.Visibility = "public" }
+	if in.Visibility == "" {
+		in.Visibility = "public"
+	}
 	if in.Visibility != "public" && in.Visibility != "members" && in.Visibility != "private" {
 		writeErr(w, http.StatusBadRequest, "validation", "Invalid visibility.")
 		return
@@ -334,7 +323,9 @@ func (s *Server) collectionForEdit(w http.ResponseWriter, r *http.Request) (stor
 
 func (s *Server) handleUpdateCollection(w http.ResponseWriter, r *http.Request) {
 	c, ok := s.collectionForEdit(w, r)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	var in struct {
 		Name        *string `json:"name"`
 		Description *string `json:"description"`
@@ -347,16 +338,23 @@ func (s *Server) handleUpdateCollection(w http.ResponseWriter, r *http.Request) 
 	fields := map[string]any{}
 	if in.Name != nil {
 		v := strings.TrimSpace(*in.Name)
-		if len(v) < 1 || len(v) > 80 { writeErr(w, http.StatusBadRequest, "validation", "Invalid name."); return }
+		if len(v) < 1 || len(v) > 80 {
+			writeErr(w, http.StatusBadRequest, "validation", "Invalid name.")
+			return
+		}
 		fields["name"] = v
 	}
 	if in.Description != nil {
-		if len(*in.Description) > 2000 { writeErr(w, http.StatusBadRequest, "validation", "Description is too long."); return }
+		if len(*in.Description) > 2000 {
+			writeErr(w, http.StatusBadRequest, "validation", "Description is too long.")
+			return
+		}
 		fields["description"] = strings.TrimSpace(*in.Description)
 	}
 	if in.Visibility != nil {
 		if *in.Visibility != "public" && *in.Visibility != "members" && *in.Visibility != "private" {
-			writeErr(w, http.StatusBadRequest, "validation", "Invalid visibility."); return
+			writeErr(w, http.StatusBadRequest, "validation", "Invalid visibility.")
+			return
 		}
 		fields["visibility"] = *in.Visibility
 	}
@@ -364,13 +362,19 @@ func (s *Server) handleUpdateCollection(w http.ResponseWriter, r *http.Request) 
 		writeErr(w, http.StatusInternalServerError, "internal", "Could not update collection.")
 		return
 	}
-	c2, _ := s.st.CollectionByID(r.Context(), c.ID, currentUser(r).ID, currentUser(r).Role == "admin")
+	c2, err := s.st.CollectionByID(r.Context(), c.ID, currentUser(r).ID, currentUser(r).Role == "admin")
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal", "Collection was updated, but could not be reloaded.")
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"collection": c2})
 }
 
 func (s *Server) handleDeleteCollection(w http.ResponseWriter, r *http.Request) {
 	c, ok := s.collectionForEdit(w, r)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	if err := s.st.DeleteCollection(r.Context(), c.ID); err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal", "Could not delete collection.")
 		return
@@ -381,7 +385,9 @@ func (s *Server) handleDeleteCollection(w http.ResponseWriter, r *http.Request) 
 
 func (s *Server) handleAddToCollection(w http.ResponseWriter, r *http.Request) {
 	c, ok := s.collectionForEdit(w, r)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	modelID := chi.URLParam(r, "modelId")
 	m, err := s.st.ModelByID(r.Context(), modelID, currentUser(r).ID)
 	if err != nil || !s.canViewModel(r, m) {
@@ -397,7 +403,9 @@ func (s *Server) handleAddToCollection(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleRemoveFromCollection(w http.ResponseWriter, r *http.Request) {
 	c, ok := s.collectionForEdit(w, r)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	if err := s.st.RemoveFromCollection(r.Context(), c.ID, chi.URLParam(r, "modelId")); err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal", "Could not remove model.")
 		return
@@ -407,8 +415,12 @@ func (s *Server) handleRemoveFromCollection(w http.ResponseWriter, r *http.Reque
 
 func (s *Server) handleReorderCollection(w http.ResponseWriter, r *http.Request) {
 	c, ok := s.collectionForEdit(w, r)
-	if !ok { return }
-	var in struct { ModelIDs []string `json:"modelIds"` }
+	if !ok {
+		return
+	}
+	var in struct {
+		ModelIDs []string `json:"modelIds"`
+	}
 	if err := decodeJSON(r, &in); err != nil {
 		writeErr(w, http.StatusBadRequest, "bad_request", "Invalid request.")
 		return
@@ -426,6 +438,7 @@ func (s *Server) handleAdminDeleteComment(w http.ResponseWriter, r *http.Request
 		writeErr(w, http.StatusNotFound, "not_found", "Comment not found.")
 		return
 	}
+	s.audit(r, currentSession(r).User.ID, "admin.comment_deleted", "comment", id, `{}`)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
@@ -436,15 +449,16 @@ func (s *Server) handleAdminDeleteRating(w http.ResponseWriter, r *http.Request)
 		writeErr(w, http.StatusInternalServerError, "internal", "Could not remove rating.")
 		return
 	}
+	s.audit(r, currentSession(r).User.ID, "admin.rating_deleted", "model", modelID, jsonMap(map[string]string{"userId": userID}))
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (s *Server) handleAdminDeleteCollection(w http.ResponseWriter, r *http.Request) {
-	if err := s.st.DeleteCollection(r.Context(), chi.URLParam(r, "id")); err != nil {
+	id := chi.URLParam(r, "id")
+	if err := s.st.DeleteCollection(r.Context(), id); err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal", "Could not delete collection.")
 		return
 	}
+	s.audit(r, currentSession(r).User.ID, "admin.collection_deleted", "collection", id, `{}`)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
-
-var _ = strconv.Itoa

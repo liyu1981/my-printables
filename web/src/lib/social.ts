@@ -1,4 +1,4 @@
-import { api, del, patch, post, put, type User } from './api'
+import { api, del, patch, post, put } from './api'
 import type { Model } from './models'
 
 export type Comment = {

@@ -49,11 +49,6 @@ func (s *Store) DeleteSession(ctx context.Context, tokenHash string) error {
 	return err
 }
 
-func (s *Store) DeleteSessionByID(ctx context.Context, id string) error {
-	_, err := s.DB.ExecContext(ctx, `DELETE FROM sessions WHERE id = ?`, id)
-	return err
-}
-
 func (s *Store) DeleteUserSessions(ctx context.Context, userID string) error {
 	_, err := s.DB.ExecContext(ctx, `DELETE FROM sessions WHERE user_id = ?`, userID)
 	return err
@@ -62,10 +57,6 @@ func (s *Store) DeleteUserSessions(ctx context.Context, userID string) error {
 func (s *Store) DeleteOtherSessions(ctx context.Context, userID, keepTokenHash string) error {
 	_, err := s.DB.ExecContext(ctx, `DELETE FROM sessions WHERE user_id = ? AND token_hash <> ?`, userID, keepTokenHash)
 	return err
-}
-
-func (s *Store) CleanupExpiredSessions(ctx context.Context) {
-	_, _ = s.DB.ExecContext(ctx, `DELETE FROM sessions WHERE expires_at < ?`, time.Now().Unix())
 }
 
 func (s *Store) CreateEmailToken(ctx context.Context, userID, tokenHash string, expiresAt int64) error {

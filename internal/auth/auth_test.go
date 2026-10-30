@@ -28,8 +28,8 @@ func TestPasswordValidation(t *testing.T) {
 }
 
 func TestTokenHashStable(t *testing.T) {
-	if TokenHash("abc") != TokenHash("abc") {
-		t.Fatal("token hash is not stable")
+	if got := TokenHash("abc"); got != "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" {
+		t.Fatalf("TokenHash(abc) = %q", got)
 	}
 	if TokenHash("abc") == TokenHash("abd") {
 		t.Fatal("token hash collision")

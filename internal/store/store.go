@@ -15,8 +15,7 @@ import (
 )
 
 type Store struct {
-	DB  *sql.DB
-	Cfg config.Config
+	DB *sql.DB
 }
 
 func Open(cfg config.Config) (*Store, error) {
@@ -42,7 +41,7 @@ func Open(cfg config.Config) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("open database: %w", err)
 	}
-	return &Store{DB: db, Cfg: cfg}, nil
+	return &Store{DB: db}, nil
 }
 
 func (s *Store) Close() error { return s.DB.Close() }
@@ -97,11 +96,6 @@ func (s *Store) Settings() map[string]string {
 		}
 	}
 	return out
-}
-
-func (s *Store) Audit(actorID, action, targetType, targetID, meta, ipHash string) {
-	_, _ = s.DB.Exec(`INSERT INTO audit_log(actor_id, action, target_type, target_id, meta_json, ip_hash, created_at)
-		VALUES(?, ?, ?, ?, ?, ?, ?)`, nullString(actorID), action, targetType, targetID, meta, ipHash, time.Now().Unix())
 }
 
 func (s *Store) VacuumInto(path string) error {

@@ -8,10 +8,30 @@ import { DropZone } from '../components/DropZone'
 import { ApiError, del, formatBytes, patch, post } from '../lib/api'
 import { uploadWithProgress } from '../lib/upload'
 import { getCategories, getModel, type Category, type Model } from '../lib/models'
-import { formatOf, renderCover } from '../lib/render-cover'
+import { renderCover } from '../lib/render-cover'
+import { ATTACHMENT_ACCEPT, ATTACHMENT_EXT, ATTACHMENT_FORMAT_LABEL, IMAGE_ACCEPT, IMAGE_EXT, IMAGE_FORMAT_LABEL, MODEL_ACCEPT, MODEL_EXT, MODEL_FORMAT_LABEL, extensionOf, formatOf } from '../lib/model-files'
 
 type UploadState = { file: File; progress: number; error?: string }
 
+function partitionSupported(files: File[], allowed: Set<string>): { accepted: File[]; rejected: string[] } {
+  const accepted: File[] = []
+  const rejected: string[] = []
+  for (const file of files) {
+    if (allowed.has(extensionOf(file.name))) accepted.push(file)
+    else rejected.push(file.name)
+  }
+  return { accepted, rejected }
+}
+
+function LocalImage({ file, className }: { file: File; className: string }) {
+  const [src, setSrc] = useState('')
+  useEffect(() => {
+    const url = URL.createObjectURL(file)
+    setSrc(url)
+    return () => URL.revokeObjectURL(url)
+  }, [file])
+  return src ? <img src={src} alt="" className={className} /> : null
+}
 
 export function Upload() {
   const [auth] = useAtom(authAtom)
@@ -55,42 +75,39 @@ export function Upload() {
   }, [editId])
 
   function addModelFiles(list: File[]) {
-    const allowed = new Set(['stl', '3mf', 'obj', 'ply', 'glb', 'gltf', 'gcode', 'gco', 'g', 'step', 'stp'])
-    const accepted: File[] = []
-    const rejected: string[] = []
-    for (const file of list) {
-      const ext = file.name.toLowerCase().split('.').pop() ?? ''
-      if (allowed.has(ext)) accepted.push(file)
-      else rejected.push(file.name)
-    }
+    const { accepted, rejected } = partitionSupported(list, MODEL_EXT)
     if (accepted.length) setFiles((prev) => [...prev, ...accepted.map((file) => ({ file, progress: 0 }))])
-    setModelDropError(rejected.length ? `Unsupported model file${rejected.length === 1 ? '' : 's'}: ${rejected.join(', ')}. Use STL, 3MF, OBJ, PLY, GLB, GLTF, GCODE, GCO, G, STEP, or STP.` : '')
+    setModelDropError(rejected.length ? `Unsupported model file${rejected.length === 1 ? '' : 's'}: ${rejected.join(', ')}. Use ${MODEL_FORMAT_LABEL}.` : '')
   }
 
   function addImageFiles(list: File[]) {
-    const allowed = new Set(['jpg', 'jpeg', 'png', 'webp'])
-    const accepted: File[] = []
-    const rejected: string[] = []
-    for (const file of list) {
-      const ext = file.name.toLowerCase().split('.').pop() ?? ''
-      if (allowed.has(ext)) accepted.push(file)
-      else rejected.push(file.name)
-    }
+    const { accepted, rejected } = partitionSupported(list, IMAGE_EXT)
     if (accepted.length) setImages((prev) => [...prev, ...accepted.map((file) => ({ file, progress: 0 }))])
-    setImageDropError(rejected.length ? `Unsupported image file${rejected.length === 1 ? '' : 's'}: ${rejected.join(', ')}. Use JPEG, PNG, or WebP.` : '')
+    setImageDropError(rejected.length ? `Unsupported image file${rejected.length === 1 ? '' : 's'}: ${rejected.join(', ')}. Use ${IMAGE_FORMAT_LABEL}.` : '')
   }
 
   function addAttachmentFiles(list: File[]) {
-    const allowed = new Set(['pdf', 'txt', 'md', 'zip'])
-    const accepted: File[] = []
-    const rejected: string[] = []
-    for (const file of list) {
-      const ext = file.name.toLowerCase().split('.').pop() ?? ''
-      if (allowed.has(ext)) accepted.push(file)
-      else rejected.push(file.name)
-    }
+    const { accepted, rejected } = partitionSupported(list, ATTACHMENT_EXT)
     if (accepted.length) setAttachments((prev) => [...prev, ...accepted.map((file) => ({ file, progress: 0 }))])
-    setAttachmentDropError(rejected.length ? `Unsupported attachment${rejected.length === 1 ? '' : 's'}: ${rejected.join(', ')}. Use PDF, TXT, MD, or ZIP.` : '')
+    setAttachmentDropError(rejected.length ? `Unsupported attachment${rejected.length === 1 ? '' : 's'}: ${rejected.join(', ')}. Use ${ATTACHMENT_FORMAT_LABEL}.` : '')
+  }
+
+  async function uploadAll(
+    list: UploadState[],
+    setList: React.Dispatch<React.SetStateAction<UploadState[]>>,
+    url: string,
+  ) {
+    for (let i = 0; i < list.length; i++) {
+      setList((prev) => prev.map((f, j) => j === i ? { ...f, progress: 0, error: undefined } : f))
+      try {
+        await uploadWithProgress(url, list[i].file, auth.csrf, (n) => {
+          setList((prev) => prev.map((f, j) => j === i ? { ...f, progress: n } : f))
+        })
+      } catch (err) {
+        setList((prev) => prev.map((f, j) => j === i ? { ...f, error: err instanceof Error ? err.message : 'Upload failed' } : f))
+        throw err
+      }
+    }
   }
 
   async function submit(e: React.FormEvent, publish: boolean) {
@@ -118,39 +135,9 @@ export function Upload() {
         model = res.model
       }
 
-      for (let i = 0; i < files.length; i++) {
-        setFiles((prev) => prev.map((f, j) => j === i ? { ...f, progress: 0, error: undefined } : f))
-        try {
-          await uploadWithProgress(`/api/models/${model.id}/files`, files[i].file, auth.csrf, (n) => {
-            setFiles((prev) => prev.map((f, j) => j === i ? { ...f, progress: n } : f))
-          })
-        } catch (err) {
-          setFiles((prev) => prev.map((f, j) => j === i ? { ...f, error: err instanceof Error ? err.message : 'Upload failed' } : f))
-          throw err
-        }
-      }
-      for (let i = 0; i < images.length; i++) {
-        setImages((prev) => prev.map((f, j) => j === i ? { ...f, progress: 0, error: undefined } : f))
-        try {
-          await uploadWithProgress(`/api/models/${model.id}/images`, images[i].file, auth.csrf, (n) => {
-            setImages((prev) => prev.map((f, j) => j === i ? { ...f, progress: n } : f))
-          })
-        } catch (err) {
-          setImages((prev) => prev.map((f, j) => j === i ? { ...f, error: err instanceof Error ? err.message : 'Upload failed' } : f))
-          throw err
-        }
-      }
-      for (let i = 0; i < attachments.length; i++) {
-        setAttachments((prev) => prev.map((f, j) => j === i ? { ...f, progress: 0, error: undefined } : f))
-        try {
-          await uploadWithProgress(`/api/models/${model.id}/attachments`, attachments[i].file, auth.csrf, (n) => {
-            setAttachments((prev) => prev.map((f, j) => j === i ? { ...f, progress: n } : f))
-          })
-        } catch (err) {
-          setAttachments((prev) => prev.map((f, j) => j === i ? { ...f, error: err instanceof Error ? err.message : 'Upload failed' } : f))
-          throw err
-        }
-      }
+      await uploadAll(files, setFiles, `/api/models/${model.id}/files`)
+      await uploadAll(images, setImages, `/api/models/${model.id}/images`)
+      await uploadAll(attachments, setAttachments, `/api/models/${model.id}/attachments`)
       const hasImages = (existingImages?.length ?? 0) > 0 || images.length > 0
       if (!hasImages && files.length > 0) {
         try {
@@ -217,11 +204,11 @@ export function Upload() {
             </section>
 
             <section className="card-line p-5">
-              <div className="flex items-center justify-between"><h2 className="font-display text-lg font-bold text-ink">3D files</h2><span className="text-[11px] text-muted">STL · 3MF · OBJ · PLY · GLB · GLTF · GCODE · STEP</span></div>
+              <div className="flex items-center justify-between"><h2 className="font-display text-lg font-bold text-ink">3D files</h2><span className="text-[11px] text-muted">{MODEL_FORMAT_LABEL}</span></div>
               <DropZone
-                accept=".stl,.3mf,.obj,.ply,.glb,.gltf,.gcode,.gco,.g,.step,.stp"
+                accept={MODEL_ACCEPT}
                 title="Choose model files"
-                subtitle="or drag and drop · STL · 3MF · OBJ · PLY · GLB · GLTF · GCODE · STEP"
+                subtitle={`or drag and drop · ${MODEL_FORMAT_LABEL}`}
                 icon={<UploadIcon className="h-7 w-7 text-brand" />}
                 onFiles={addModelFiles}
               />
@@ -239,11 +226,11 @@ export function Upload() {
             </section>
 
             <section className="card-line p-5">
-              <div className="flex items-center justify-between"><h2 className="font-display text-lg font-bold text-ink">Images</h2><span className="text-[11px] text-muted">JPEG · PNG · WebP</span></div>
+              <div className="flex items-center justify-between"><h2 className="font-display text-lg font-bold text-ink">Images</h2><span className="text-[11px] text-muted">{IMAGE_FORMAT_LABEL}</span></div>
               <DropZone
-                accept="image/jpeg,image/png,image/webp"
+                accept={IMAGE_ACCEPT}
                 title="Add photos or render"
-                subtitle="or drag and drop · JPEG · PNG · WebP"
+                subtitle={`or drag and drop · ${IMAGE_FORMAT_LABEL}`}
                 icon={<ImagePlus className="h-6 w-6 text-brand" />}
                 onFiles={addImageFiles}
               />
@@ -253,18 +240,18 @@ export function Upload() {
                   <div key={im.id} className="relative"><img src={`/api/models/${editing?.id}/images/${im.id}/thumb`} alt="" className="h-20 w-24 object-cover" /><button type="button" onClick={() => removeImage(im.id)} className="absolute right-1 top-1 bg-ink/80 p-1 text-white"><Trash2 className="h-3 w-3" /></button></div>
                 ))}
                 {images.map((im, i) => (
-                  <div key={`${im.file.name}-${i}`} className="relative border border-line p-1"><img src={URL.createObjectURL(im.file)} alt="" className="h-20 w-24 object-cover" /><button type="button" onClick={() => setImages((prev) => prev.filter((_, j) => j !== i))} className="absolute right-1 top-1 bg-ink/80 p-1 text-white"><X className="h-3 w-3" /></button>{im.progress > 0 && <div className="absolute bottom-1 left-1 right-1 h-1 bg-canvas"><div className="h-1 bg-brand" style={{ width: `${im.progress}%` }} /></div>}</div>
+                  <div key={`${im.file.name}-${i}`} className="relative border border-line p-1"><LocalImage file={im.file} className="h-20 w-24 object-cover" /><button type="button" onClick={() => setImages((prev) => prev.filter((_, j) => j !== i))} className="absolute right-1 top-1 bg-ink/80 p-1 text-white"><X className="h-3 w-3" /></button>{im.progress > 0 && <div className="absolute bottom-1 left-1 right-1 h-1 bg-canvas"><div className="h-1 bg-brand" style={{ width: `${im.progress}%` }} /></div>}</div>
                 ))}
               </div>
             </section>
 
             <section className="card-line p-5">
-              <div className="flex items-center justify-between"><h2 className="font-display text-lg font-bold text-ink">Attachments</h2><span className="text-[11px] text-muted">PDF · TXT · MD · ZIP</span></div>
+              <div className="flex items-center justify-between"><h2 className="font-display text-lg font-bold text-ink">Attachments</h2><span className="text-[11px] text-muted">{ATTACHMENT_FORMAT_LABEL}</span></div>
               <p className="mt-1 text-[11px] text-muted">Add assembly instructions, documentation, or a ZIP bundle.</p>
               <DropZone
-                accept=".pdf,.txt,.md,.zip"
+                accept={ATTACHMENT_ACCEPT}
                 title="Add instructions or documents"
-                subtitle="or drag and drop · PDF · TXT · MD · ZIP"
+                subtitle={`or drag and drop · ${ATTACHMENT_FORMAT_LABEL}`}
                 icon={<FileText className="h-6 w-6 text-brand" />}
                 onFiles={addAttachmentFiles}
               />

@@ -1,9 +1,6 @@
 package httpapi
 
 import (
-	"database/sql"
-	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -107,8 +104,8 @@ func (s *Server) handleListModels(w http.ResponseWriter, r *http.Request) {
 		Owner: q.Get("owner"), Sort: q.Get("sort"), Page: page, PerPage: perPage,
 		ViewerID: viewer, ViewerAdmin: admin,
 		RequireLogin: s.st.Setting("require_login_to_browse", "false") == "true",
-		Featured: q.Get("featured") == "1" || q.Get("featured") == "true",
-		Mine: q.Get("mine") == "1" || q.Get("mine") == "true",
+		Featured:     q.Get("featured") == "1" || q.Get("featured") == "true",
+		Mine:         q.Get("mine") == "1" || q.Get("mine") == "true",
 	}
 	if f.Mine && viewer == "" {
 		writeErr(w, http.StatusUnauthorized, "unauthorized", "Sign in required.")
@@ -283,7 +280,11 @@ func (s *Server) handleUpdateModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r, currentUser(r).ID, "model.updated", "model", id, jsonMap(in))
-	updated, _ := s.st.ModelByID(r.Context(), id, currentUser(r).ID)
+	updated, err := s.st.ModelByID(r.Context(), id, currentUser(r).ID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal", "Model was updated, but could not be reloaded.")
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"model": updated, "canEdit": true})
 }
 
@@ -456,7 +457,3 @@ func intQuery(s string, fallback int) int {
 	}
 	return n
 }
-
-var _ = errors.Is
-var _ = fmt.Sprint
-var _ = sql.ErrNoRows

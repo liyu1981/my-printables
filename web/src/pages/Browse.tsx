@@ -2,6 +2,7 @@ import { Box, ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { ModelCard } from '../components/ModelCard'
+import { MODEL_FORMATS } from '../lib/model-files'
 import { getCategories, getModels, getTags, type Category, type ModelPage, type Tag } from '../lib/models'
 
 const sorts = [
@@ -11,7 +12,7 @@ const sorts = [
   ['likes', 'Likes'],
   ['rating', 'Rating'],
 ]
-const formats = ['stl', '3mf', 'obj', 'ply', 'glb', 'gltf', 'gcode', 'step']
+const formats = MODEL_FORMATS
 
 export function Browse() {
   const [params, setParams] = useSearchParams()

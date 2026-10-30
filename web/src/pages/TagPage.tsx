@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { ModelCard } from '../components/ModelCard'
 import { api } from '../lib/api'
-import type { Model, ModelPage, Tag } from '../lib/models'
+import type { ModelPage, Tag } from '../lib/models'
 
 export function TagPage() {
   const { slug = '' } = useParams()

@@ -34,7 +34,7 @@ func Handler() http.Handler {
 		}
 		f, err := sub.Open(p)
 		if err != nil {
-			serveIndex(w, r, sub)
+			http.NotFound(w, r)
 			return
 		}
 		f.Close()
@@ -70,6 +70,9 @@ func serveIndex(w http.ResponseWriter, r *http.Request, sub fs.FS) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
+	if r.Method == http.MethodHead {
+		return
+	}
 	_, _ = w.Write(b)
 }
 
@@ -100,7 +103,11 @@ func SlicerHandler() http.Handler {
 		}
 		f, err := sub.Open(rel)
 		if err != nil {
-			serveSlicerIndex(w, r, sub)
+			if path.Ext(rel) == "" {
+				serveSlicerIndex(w, r, sub)
+			} else {
+				http.NotFound(w, r)
+			}
 			return
 		}
 		_ = f.Close()
@@ -134,5 +141,8 @@ func serveSlicerIndex(w http.ResponseWriter, r *http.Request, sub fs.FS) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
+	if r.Method == http.MethodHead {
+		return
+	}
 	_, _ = w.Write(b)
 }

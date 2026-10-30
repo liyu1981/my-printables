@@ -1,4 +1,4 @@
-import { Bookmark, Box, ChevronLeft, ChevronRight, Download, Eye, FileBox, FileText, FolderPlus, Heart, Pencil, Scissors, Share2, Star, Trash2 } from 'lucide-react'
+import { Bookmark, Box, ChevronLeft, ChevronRight, Download, Eye, FileBox, FileText, FolderPlus, Heart, Pencil, Scissors, Share2, Trash2 } from 'lucide-react'
 import { useAtom } from 'jotai'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
@@ -175,7 +175,7 @@ export function ModelDetail() {
                 </div>
               )}
               {m.license && <div className="mt-8 border-t border-line pt-5 text-xs"><span className="text-muted">License:</span> <span className="font-semibold text-ink">{m.license}</span></div>}
-              {m.sourceUrl && <div className="mt-2 text-xs"><span className="text-muted">Source:</span> <a href={m.sourceUrl} target="_blank" rel="noreferrer" className="text-brand-strong hover:underline">{m.sourceUrl}</a></div>}
+              {m.sourceUrl && <div className="mt-2 text-xs"><span className="text-muted">Source:</span> <a href={m.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-brand-strong hover:underline">{m.sourceUrl}</a></div>}
             </div>
           )}
 
@@ -202,7 +202,7 @@ export function ModelDetail() {
                       <div key={a.id} className="flex items-center gap-3 border-b border-line px-3 py-3 last:border-0">
                         <FileText className="h-5 w-5 shrink-0 text-brand" />
                         <div className="min-w-0 flex-1">
-                          <a href={attachmentUrl(m.id, a.id)} target="_blank" rel="noreferrer" className="block truncate text-sm font-semibold text-ink hover:text-brand-strong hover:underline">{a.filename}</a>
+                          <a href={attachmentUrl(m.id, a.id)} target="_blank" rel="noopener noreferrer" className="block truncate text-sm font-semibold text-ink hover:text-brand-strong hover:underline">{a.filename}</a>
                           <p className="text-[11px] text-muted">{a.mimeType.split(';')[0]} · {formatBytes(a.sizeBytes)}</p>
                         </div>
                         <a href={attachmentUrl(m.id, a.id, true)} className="btn-secondary !min-h-8 !px-2 !text-[11px]"><Download className="h-3.5 w-3.5" /> Download</a>
