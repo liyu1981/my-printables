@@ -1,4 +1,4 @@
-import { Bookmark, Box, ChevronLeft, ChevronRight, Download, Eye, FileBox, FileText, FolderPlus, Heart, Pencil, Scissors, Share2, Trash2 } from 'lucide-react'
+import { Bookmark, Box, ChevronDown, ChevronLeft, ChevronRight, Download, Eye, FileBox, FileText, FolderPlus, Heart, Pencil, Scissors, Share2, Trash2 } from 'lucide-react'
 import { useAtom } from 'jotai'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
@@ -72,7 +72,7 @@ export function ModelDetail() {
   const files = m.files ?? []
   const attachments = m.attachments ?? []
   const preview = files.find((f) => f.isPreview) ?? files[0]
-  const sliceFile = preview && canSlice(preview) ? preview : files.find(canSlice)
+  const sliceFiles = files.filter(canSlice)
   const canEdit = detail.canEdit
   const isAuthed = !!auth.user
   const csrf = auth.csrf
@@ -256,7 +256,34 @@ export function ModelDetail() {
               <a href={fileUrl(m.id, preview.id, true)} className="btn-primary w-full"><Download className="h-4 w-4" /> Download</a>
             ) : <span className="btn-secondary w-full opacity-60">No file available</span>}
             <button onClick={() => { if (preview) { setViewerFileId(preview.id); setViewerOpen(true) } }} className="btn-secondary w-full" disabled={!preview}><Box className="h-4 w-4" /> View in 3D</button>
-            {sliceFile && <a href={slicerUrl(m.id, sliceFile)} target="_blank" rel="noopener noreferrer" className="btn-secondary w-full" title="Open this file in CubbySlicer"><Scissors className="h-4 w-4" /> Slice in CubbySlicer</a>}
+            {sliceFiles.length === 1 && (
+              <a href={slicerUrl(m.id, sliceFiles[0])} target="_blank" rel="noopener noreferrer" className="btn-secondary w-full" title="Open this file in CubbySlicer"><Scissors className="h-4 w-4" /> Slice in CubbySlicer</a>
+            )}
+            {sliceFiles.length > 1 && (
+              <details className="group relative">
+                <summary className="btn-secondary w-full cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden" title="Choose a file to slice">
+                  <Scissors className="h-4 w-4" /> Slice in CubbySlicer <ChevronDown className="ml-auto h-4 w-4 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="absolute inset-x-0 z-20 mt-1 border border-line bg-surface shadow-lg">
+                  {sliceFiles.map((f) => (
+                    <a
+                      key={f.id}
+                      href={slicerUrl(m.id, f)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => { const details = e.currentTarget.closest('details'); if (details) details.open = false }}
+                      className="flex items-center gap-2 border-b border-line px-3 py-2.5 text-xs last:border-0 hover:bg-canvas"
+                      title={`Slice ${f.filename} in CubbySlicer`}
+                    >
+                      <FileBox className="h-3.5 w-3.5 shrink-0 text-brand" />
+                      <span className="min-w-0 flex-1 truncate">{f.filename}</span>
+                      <span className="shrink-0 text-[10px] font-bold uppercase text-muted">{f.format}</span>
+                      {f.isPreview && <span className="shrink-0 text-[10px] text-brand-strong">default</span>}
+                    </a>
+                  ))}
+                </div>
+              </details>
+            )}
             {auth.user && <button onClick={() => setAddOpen(true)} className="btn-secondary w-full"><FolderPlus className="h-4 w-4" /> Add to collection</button>}
           </div>
           <div className="mt-3 grid grid-cols-3 border border-line bg-surface text-xs">
