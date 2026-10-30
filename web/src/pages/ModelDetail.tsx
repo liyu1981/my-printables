@@ -261,8 +261,9 @@ export function ModelDetail() {
             )}
             {sliceFiles.length > 1 && (
               <details className="group relative">
-                <summary className="btn-secondary w-full cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden" title="Choose a file to slice">
-                  <Scissors className="h-4 w-4" /> Slice in CubbySlicer <ChevronDown className="ml-auto h-4 w-4 transition-transform group-open:rotate-180" />
+                <summary className="btn-secondary relative w-full cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden" title="Choose a file to slice">
+                  <Scissors className="h-4 w-4" /> Slice in CubbySlicer
+                  <ChevronDown className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="absolute inset-x-0 z-20 mt-1 border border-line bg-surface shadow-lg">
                   {sliceFiles.map((f) => (
