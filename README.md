@@ -5,31 +5,65 @@ and the administrative CLI.
 
 ![MyPrintables homepage](https://raw.githubusercontent.com/liyu1981/my-printables/master/assets/myprintables_homepage.png)
 
-## Features (v1)
+## Features
 
-- Open registration with optional email verification (SMTP, off by default)
-- Admin and user roles, sessions, password reset via admin UI/CLI
-- Models with multiple STL / 3MF / OBJ / PLY / GLB / GLTF files
-- G-code uploads with a toolpath viewer
-- STEP/STP uploads with browser-side OpenCascade preview
-- Bulk folder import with a one-by-one confirmation queue
-- Optional CubbySlicer integration: send STL/3MF/OBJ/STEP straight to a browser slicer
-- MCP server for LLMs with API-key authenticated read/create/update access
-- PDF/TXT/Markdown/ZIP attachments for assembly instructions and documentation
-- Public, members-only, and private visibility
-- Image uploads with automatic resizing and client-generated 3D covers
-- Fullscreen 3D preview with orbit/zoom/pan, file switching, screenshots, and region-crop captures saved to the gallery
-- Search, category/tag filters, likes, bookmarks, downloads
+### Models and files
+
+- Multiple 3D files per model: STL, 3MF, OBJ, PLY, GLB, GLTF, G-code (`.gcode`, `.gco`, `.g`), and STEP/STP
+- In-browser 3D previews for every supported format, including STEP/STP via OpenCascade tessellation
+- Inline gallery preview with previous/next navigation and a file switcher for multi-file models
+- Fullscreen viewer with orbit/zoom/pan, wireframe controls, screenshots, and region-crop captures saved to the gallery
+- G-code toolpath viewer with extrusion/travel paths, arcs, units, and absolute/relative coordinates
+- **Slice in CubbySlicer** hand-off for STL, 3MF, OBJ, and STEP files, including private/members-only models
+- PDF, TXT, Markdown, and ZIP attachments for instructions, profiles, and documentation
+- Bulk folder import with recursive scanning, per-folder model creation, and a confirmation queue
+
+### Library and social
+
+- Public, members-only, and private models with separate media access checks
+- Search, category/tag filters, file-type filters, likes, bookmarks, and download tracking
 - 1–5 star ratings, comments with one reply level, tags, and collections
-- Admin dashboard with users, content moderation, storage, audit, and settings
-- SQLite + plain files in one local data directory
-- Single binary with a full CLI
+- Creator profiles and collection discovery
+- Image uploads with automatic resizing and client-generated 3D covers
+
+### Accounts and administration
+
+- Open registration with optional SMTP email verification (off by default)
+- Admin and user roles, sessions, profile settings, and admin/CLI password reset
+- Settings UI for branding, registration, visibility, upload limits, allowed formats, and email verification
+- Admin dashboard for users, model moderation, comments, collections, storage, audit log, and statistics
+- User API keys for MCP access; keys are shown once and can be revoked at any time
+- MCP server over Streamable HTTP plus a read-only stdio mode for local clients
+
+### Deployment
+
+- Single Go binary embeds the API, React SPA, SQLite migrations, CLI, and CubbySlicer assets
+- SQLite metadata plus plain files in one local data directory
+- Docker/GHCR multi-arch images for `linux/amd64` and `linux/arm64`
+- Model deletion stays a human-only action and is intentionally not exposed through MCP
+
+## Supported model formats
+
+| Format | Upload | Inline preview | Standalone slicer |
+|---|---:|---:|---:|
+| STL | ✅ | ✅ | ✅ |
+| 3MF | ✅ | ✅ | ✅ |
+| OBJ | ✅ | ✅ | ✅ |
+| PLY | ✅ | ✅ | — |
+| GLB | ✅ | ✅ | — |
+| GLTF | ✅ | ✅ | — |
+| G-code | ✅ | ✅ toolpath | — |
+| STEP / STP | ✅ | ✅ OpenCascade | ✅ |
+
+GLTF currently supports self-contained buffers; external buffer and texture URIs are rejected. STEP files are
+stored unchanged and tessellated in the browser for preview and slicing.
 
 ## Build & run
 
 Requires Go 1.27+, Node 22+, and pnpm.
 
 ```sh
+git submodule update --init --recursive
 pnpm install
 pnpm build
 pnpm start
