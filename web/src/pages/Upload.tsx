@@ -55,7 +55,7 @@ export function Upload() {
   }, [editId])
 
   function addModelFiles(list: File[]) {
-    const allowed = new Set(['stl', '3mf', 'obj', 'ply', 'glb', 'gltf', 'gcode', 'gco', 'g'])
+    const allowed = new Set(['stl', '3mf', 'obj', 'ply', 'glb', 'gltf', 'gcode', 'gco', 'g', 'step', 'stp'])
     const accepted: File[] = []
     const rejected: string[] = []
     for (const file of list) {
@@ -64,7 +64,7 @@ export function Upload() {
       else rejected.push(file.name)
     }
     if (accepted.length) setFiles((prev) => [...prev, ...accepted.map((file) => ({ file, progress: 0 }))])
-    setModelDropError(rejected.length ? `Unsupported model file${rejected.length === 1 ? '' : 's'}: ${rejected.join(', ')}. Use STL, 3MF, OBJ, PLY, GLB, GLTF, GCODE, GCO, or G.` : '')
+    setModelDropError(rejected.length ? `Unsupported model file${rejected.length === 1 ? '' : 's'}: ${rejected.join(', ')}. Use STL, 3MF, OBJ, PLY, GLB, GLTF, GCODE, GCO, G, STEP, or STP.` : '')
   }
 
   function addImageFiles(list: File[]) {
@@ -217,11 +217,11 @@ export function Upload() {
             </section>
 
             <section className="card-line p-5">
-              <div className="flex items-center justify-between"><h2 className="font-display text-lg font-bold text-ink">3D files</h2><span className="text-[11px] text-muted">STL · 3MF · OBJ · PLY · GLB · GLTF · GCODE</span></div>
+              <div className="flex items-center justify-between"><h2 className="font-display text-lg font-bold text-ink">3D files</h2><span className="text-[11px] text-muted">STL · 3MF · OBJ · PLY · GLB · GLTF · GCODE · STEP</span></div>
               <DropZone
-                accept=".stl,.3mf,.obj,.ply,.glb,.gltf,.gcode,.gco,.g"
+                accept=".stl,.3mf,.obj,.ply,.glb,.gltf,.gcode,.gco,.g,.step,.stp"
                 title="Choose model files"
-                subtitle="or drag and drop · STL · 3MF · OBJ · PLY · GLB · GLTF · GCODE"
+                subtitle="or drag and drop · STL · 3MF · OBJ · PLY · GLB · GLTF · GCODE · STEP"
                 icon={<UploadIcon className="h-7 w-7 text-brand" />}
                 onFiles={addModelFiles}
               />

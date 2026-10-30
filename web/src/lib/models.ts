@@ -80,6 +80,18 @@ export function fileUrl(modelId: string, fileId: string, download = false) {
 export function attachmentUrl(modelId: string, attachmentId: string, download = false) {
   return `/api/models/${modelId}/attachments/${attachmentId}/content${download ? '?download=1' : ''}`
 }
+export const SLICER_FORMATS = new Set(['stl', '3mf', 'obj', 'step'])
+export function canSlice(file: ModelFile): boolean {
+  return SLICER_FORMATS.has(file.format)
+}
+export function slicerUrl(modelId: string, file: ModelFile): string {
+  const model = new URL(fileUrl(modelId, file.id), window.location.origin).href
+  const url = new URL('/slicer/', window.location.origin)
+  url.searchParams.set('model', model)
+  url.searchParams.set('name', file.filename)
+  url.searchParams.set('arrange', 'all')
+  return url.toString()
+}
 export function modelUrl(m: Pick<Model, 'id' | 'slug'>) {
   return `/model/${m.id}/${m.slug}`
 }

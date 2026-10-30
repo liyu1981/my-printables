@@ -41,6 +41,8 @@ func (s *Server) Handler() http.Handler {
 	r.Use(s.recoverer)
 	r.Use(s.sameOrigin)
 	r.Use(s.optionalAuth)
+	r.Handle("/slicer", http.RedirectHandler("/slicer/", http.StatusMovedPermanently))
+	r.Handle("/slicer/*", web.SlicerHandler())
 	if s.mcp != nil {
 		r.Handle("/mcp", s.mcp)
 	}
@@ -127,7 +129,7 @@ func (s *Server) securityHeaders(next http.Handler) http.Handler {
 		h.Set("Referrer-Policy", "same-origin")
 		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		h.Set("Content-Security-Policy",
-			"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+			"default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
 		if s.cfg.SecureCookies {
 			h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		}

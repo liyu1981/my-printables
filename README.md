@@ -11,7 +11,9 @@ and the administrative CLI.
 - Admin and user roles, sessions, password reset via admin UI/CLI
 - Models with multiple STL / 3MF / OBJ / PLY / GLB / GLTF files
 - G-code uploads with a toolpath viewer
+- STEP/STP uploads with browser-side OpenCascade preview
 - Bulk folder import with a one-by-one confirmation queue
+- Optional CubbySlicer integration: send STL/3MF/OBJ/STEP straight to a browser slicer
 - MCP server for LLMs with API-key authenticated read/create/update access
 - PDF/TXT/Markdown/ZIP attachments for assembly instructions and documentation
 - Public, members-only, and private visibility
@@ -34,6 +36,42 @@ pnpm start
 ```
 
 Open <http://localhost:8200>.
+
+## Slicer integration
+
+The repository includes [CubbySlicer](https://github.com/JoshTheDerf/cubbyslicer) as a pinned Git submodule at
+`third_party/cubbyslicer`. It is served same-origin at `/slicer/`, so it can fetch both public and private
+model files using the existing session.
+
+After cloning:
+
+```sh
+git submodule update --init --recursive
+pnpm build:slicer
+```
+
+`pnpm build:slicer` stages the upstream OrcaSlicer/preFlight/Full Spectrum WASM artifacts and builds the Vue
+slicer into `internal/web/slicer`. `pnpm build` includes this step automatically.
+
+Model pages show a **Slice in CubbySlicer** button for supported inputs:
+
+```text
+STL · 3MF · OBJ · STEP
+```
+
+The button opens:
+
+```text
+/slicer/?model=<same-origin file URL>&name=<filename>&arrange=all
+```
+
+Notes:
+
+- CubbySlicer is **AGPL-3.0-or-later**; its source and license are in the submodule. Engine artifacts are
+  fetched from the CubbySlicer public deployment by `scripts/sync-cubby-engines.mjs`.
+- `/slicer/` is served with COOP/COEP headers and a relaxed WASM/worker CSP.
+- PLY, GLB/GLTF, and G-code are not supported as slicer inputs, so no Slice action is shown for them.
+- Model deletion remains a human-only action.
 
 ## Docker
 

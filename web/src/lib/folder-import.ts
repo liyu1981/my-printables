@@ -1,4 +1,4 @@
-const MODEL_EXT = new Set(['stl', '3mf', 'obj', 'ply', 'glb', 'gltf', 'gcode', 'gco', 'g'])
+const MODEL_EXT = new Set(['stl', '3mf', 'obj', 'ply', 'glb', 'gltf', 'gcode', 'gco', 'g', 'step', 'stp'])
 const IMAGE_EXT = new Set(['jpg', 'jpeg', 'png', 'webp'])
 const ATTACHMENT_EXT = new Set(['pdf', 'txt', 'md', 'zip'])
 

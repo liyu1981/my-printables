@@ -12,3 +12,8 @@ node_modules/
 build-errors.log
 pnpm-debug.log*
 .pnpm-store/
+/internal/web/slicer/*
+!/internal/web/slicer/.gitkeep
+/third_party/cubbyslicer/node_modules/
+/third_party/cubbyslicer/dist/
+/third_party/cubbyslicer/public/wasm/

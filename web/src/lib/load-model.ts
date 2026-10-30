@@ -44,6 +44,8 @@ export async function loadModelObject(data: ArrayBuffer, format: string): Promis
     }
     case 'gcode':
       return parseGcode(data)
+    case 'step':
+      return loadStep(data)
     default:
       throw new Error(`Unsupported format: ${format}`)
   }
@@ -169,6 +171,49 @@ function parseGcode(data: ArrayBuffer): THREE.Object3D {
   group.add(new THREE.LineSegments(geometry, material))
   group.userData.gcode = true
   return group
+}
+
+let stepWorker: Worker | null = null
+
+function loadStep(data: ArrayBuffer): Promise<THREE.Object3D> {
+  const worker = stepWorker ??= new Worker(new URL('./step.worker.ts', import.meta.url), { type: 'module', name: 'myprintables-step' })
+  const id = Math.floor(Math.random() * 1_000_000_000)
+  return new Promise((resolve, reject) => {
+    const onMessage = (event: MessageEvent<{ id: number; ok: boolean; meshes?: Array<{ positions: Float32Array; indices: Uint32Array }>; message?: string }>) => {
+      if (event.data.id !== id) return
+      worker.removeEventListener('message', onMessage)
+      worker.removeEventListener('error', onError)
+      if (!event.data.ok) {
+        reject(new Error(event.data.message || 'OpenCascade could not read this STEP file.'))
+        return
+      }
+      const meshes = event.data.meshes ?? []
+      if (meshes.length === 0) {
+        reject(new Error('This STEP file has no usable solids or surfaces.'))
+        return
+      }
+      const group = new THREE.Group()
+      for (const mesh of meshes) {
+        if (mesh.indices.length < 3) continue
+        const geometry = new THREE.BufferGeometry()
+        geometry.setAttribute('position', new THREE.BufferAttribute(mesh.positions, 3))
+        geometry.setIndex(new THREE.BufferAttribute(mesh.indices, 1))
+        geometry.computeVertexNormals()
+        group.add(new THREE.Mesh(geometry, orangeMaterial()))
+      }
+      if (group.children.length === 0) reject(new Error('This STEP file has no usable geometry.'))
+      else resolve(group)
+    }
+    const onError = (event: ErrorEvent) => {
+      event.preventDefault()
+      worker.removeEventListener('message', onMessage)
+      worker.removeEventListener('error', onError)
+      reject(new Error('The STEP importer crashed. The model may be too complex.'))
+    }
+    worker.addEventListener('message', onMessage)
+    worker.addEventListener('error', onError)
+    worker.postMessage({ id, buffer: data }, [data])
+  })
 }
 
 export function applyOrange(root: THREE.Object3D) {

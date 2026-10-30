@@ -37,10 +37,11 @@ var attachmentMime = map[string]string{
 var formatByExt = map[string]string{
 	".stl": "stl", ".3mf": "3mf", ".obj": "obj", ".ply": "ply", ".glb": "glb", ".gltf": "gltf",
 	".gcode": "gcode", ".gco": "gcode", ".g": "gcode",
+	".step": "step", ".stp": "step",
 }
 
 func (s *Server) allowedFormats() map[string]bool {
-	raw := s.st.Setting("allowed_formats", "stl,3mf,obj,ply,glb,gltf,gcode")
+	raw := s.st.Setting("allowed_formats", "stl,3mf,obj,ply,glb,gltf,gcode,step")
 	out := map[string]bool{}
 	for _, f := range strings.Split(raw, ",") {
 		if f = strings.TrimSpace(strings.ToLower(f)); f != "" {
@@ -48,7 +49,7 @@ func (s *Server) allowedFormats() map[string]bool {
 		}
 	}
 	if len(out) == 0 {
-		out = map[string]bool{"stl": true, "3mf": true, "obj": true, "ply": true, "glb": true, "gltf": true, "gcode": true}
+		out = map[string]bool{"stl": true, "3mf": true, "obj": true, "ply": true, "glb": true, "gltf": true, "gcode": true, "step": true}
 	}
 	return out
 }
@@ -82,7 +83,7 @@ func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 	ext := strings.ToLower(filepath.Ext(filename))
 	format, ok := formatByExt[ext]
 	if !ok || !s.allowedFormats()[format] {
-		writeErr(w, http.StatusBadRequest, "unsupported_format", "Unsupported model format. Use STL, 3MF, OBJ, PLY, GLB, GLTF, or G-code. STEP is not supported in v1.")
+		writeErr(w, http.StatusBadRequest, "unsupported_format", "Unsupported model format. Use STL, 3MF, OBJ, PLY, GLB, GLTF, G-code, or STEP.")
 		return
 	}
 	if err := validate3DFile(tmpPath, format); err != nil {
@@ -191,7 +192,9 @@ func (s *Server) handleUploadImage(w http.ResponseWriter, r *http.Request) {
 		ThumbPath: rel(res.ThumbPath), Width: res.Width, Height: res.Height, Kind: kind, SortOrder: count,
 	}
 	if err := s.st.AddImage(r.Context(), im); err != nil {
-		s.fs.Remove(im.OriginalPath); s.fs.Remove(im.LargePath); s.fs.Remove(im.ThumbPath)
+		s.fs.Remove(im.OriginalPath)
+		s.fs.Remove(im.LargePath)
+		s.fs.Remove(im.ThumbPath)
 		writeErr(w, http.StatusInternalServerError, "internal", "Could not save image metadata.")
 		return
 	}
@@ -473,8 +476,12 @@ func validate3DFile(path, format string) error {
 			return errors.New("GLTF file is too large or unreadable")
 		}
 		var doc struct {
-			Buffers []struct{ URI string `json:"uri"` } `json:"buffers"`
-			Images  []struct{ URI string `json:"uri"` } `json:"images"`
+			Buffers []struct {
+				URI string `json:"uri"`
+			} `json:"buffers"`
+			Images []struct {
+				URI string `json:"uri"`
+			} `json:"images"`
 		}
 		if err := json.Unmarshal(b, &doc); err != nil {
 			return errors.New("GLTF file is not valid JSON")
@@ -521,6 +528,19 @@ func validate3DFile(path, format string) error {
 		}
 		if !gcodeCommand.Match(b) {
 			return errors.New("G-code file does not contain any movement commands")
+		}
+	case "step":
+		f, err := os.Open(path)
+		if err != nil {
+			return errors.New("STEP file is unreadable")
+		}
+		defer f.Close()
+		b, err := io.ReadAll(io.LimitReader(f, 1<<20))
+		if err != nil || len(b) == 0 {
+			return errors.New("STEP file is empty or unreadable")
+		}
+		if !bytes.Contains(b, []byte("ISO-10303-21;")) {
+			return errors.New("STEP file has an invalid header")
 		}
 	case "stl", "obj":
 		// STL can be binary or ASCII; OBJ is text. The 3D loader will provide
@@ -625,6 +645,8 @@ func contentTypeForFormat(format string) string {
 		return "model/gltf+json"
 	case "gcode":
 		return "text/plain; charset=utf-8"
+	case "step":
+		return "model/step"
 	default:
 		return "application/octet-stream"
 	}

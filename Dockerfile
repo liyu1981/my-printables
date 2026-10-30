@@ -2,12 +2,14 @@
 
 FROM node:24-alpine AS web
 WORKDIR /src
-RUN npm install -g pnpm@12.4.2
+RUN apk add --no-cache git && npm install -g pnpm@12.4.2
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY web/package.json ./web/
 RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY web ./web
-RUN pnpm build:web
+COPY scripts ./scripts
+COPY third_party ./third_party
+RUN pnpm build:web && node scripts/build-slicer.mjs
 
 FROM golang:1.27-alpine AS build
 ARG VERSION=dev
@@ -19,6 +21,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=web /src/internal/web/dist ./internal/web/dist
+COPY --from=web /src/internal/web/slicer ./internal/web/slicer
 RUN mkdir -p /out && \
     CGO_ENABLED=0 go build -trimpath \
       -ldflags "-s -w -X myprintables/internal/cli.version=${VERSION} -X myprintables/internal/cli.commit=${COMMIT} -X myprintables/internal/cli.buildDate=${BUILD_DATE}" \

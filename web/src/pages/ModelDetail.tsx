@@ -1,4 +1,4 @@
-import { Bookmark, Box, ChevronLeft, ChevronRight, Download, Eye, FileBox, FileText, FolderPlus, Heart, Pencil, Share2, Star, Trash2 } from 'lucide-react'
+import { Bookmark, Box, ChevronLeft, ChevronRight, Download, Eye, FileBox, FileText, FolderPlus, Heart, Pencil, Scissors, Share2, Star, Trash2 } from 'lucide-react'
 import { useAtom } from 'jotai'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
@@ -7,7 +7,7 @@ import rehypeSanitize from 'rehype-sanitize'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { authAtom } from '../atoms/auth'
 import { ApiError, del, formatBytes, formatDate, post } from '../lib/api'
-import { attachmentUrl, displayCount, fileUrl, getModel, imageUrl, modelUrl, visibilityLabel, type Model, type ModelDetail as Detail, type ModelFile, type ModelImage } from '../lib/models'
+import { attachmentUrl, canSlice, displayCount, fileUrl, getModel, imageUrl, modelUrl, slicerUrl, visibilityLabel, type Model, type ModelDetail as Detail, type ModelFile, type ModelImage } from '../lib/models'
 import { getModelCollections, type Collection } from '../lib/social'
 import { RatingInput } from '../components/RatingInput'
 import { Comments } from '../components/Comments'
@@ -72,6 +72,7 @@ export function ModelDetail() {
   const files = m.files ?? []
   const attachments = m.attachments ?? []
   const preview = files.find((f) => f.isPreview) ?? files[0]
+  const sliceFile = preview && canSlice(preview) ? preview : files.find(canSlice)
   const canEdit = detail.canEdit
   const isAuthed = !!auth.user
   const csrf = auth.csrf
@@ -187,6 +188,7 @@ export function ModelDetail() {
                     <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-ink">{f.filename}</p><p className="text-[11px] text-muted">{f.format.toUpperCase()} · {formatBytes(f.sizeBytes)}</p></div>
                     {f.isPreview && <span className="text-[10px] font-bold uppercase text-brand-strong">Preview</span>}
                     <button onClick={() => { setViewerFileId(f.id); setViewerOpen(true) }} className="btn-secondary !min-h-8 !px-2 !text-[11px]"><Box className="h-3.5 w-3.5" /> View 3D</button>
+                    {canSlice(f) && <a href={slicerUrl(m.id, f)} target="_blank" rel="noopener noreferrer" className="btn-secondary !min-h-8 !px-2 !text-[11px]" title="Open in CubbySlicer"><Scissors className="h-3.5 w-3.5" /> Slice</a>}
                     <a href={fileUrl(m.id, f.id, true)} className="btn-secondary !min-h-8 !px-2 !text-[11px]"><Download className="h-3.5 w-3.5" /> Download</a>
                   </div>
                 ))}
@@ -254,6 +256,7 @@ export function ModelDetail() {
               <a href={fileUrl(m.id, preview.id, true)} className="btn-primary w-full"><Download className="h-4 w-4" /> Download</a>
             ) : <span className="btn-secondary w-full opacity-60">No file available</span>}
             <button onClick={() => { if (preview) { setViewerFileId(preview.id); setViewerOpen(true) } }} className="btn-secondary w-full" disabled={!preview}><Box className="h-4 w-4" /> View in 3D</button>
+            {sliceFile && <a href={slicerUrl(m.id, sliceFile)} target="_blank" rel="noopener noreferrer" className="btn-secondary w-full" title="Open this file in CubbySlicer"><Scissors className="h-4 w-4" /> Slice in CubbySlicer</a>}
             {auth.user && <button onClick={() => setAddOpen(true)} className="btn-secondary w-full"><FolderPlus className="h-4 w-4" /> Add to collection</button>}
           </div>
           <div className="mt-3 grid grid-cols-3 border border-line bg-surface text-xs">

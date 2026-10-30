@@ -11,7 +11,7 @@ const sorts = [
   ['likes', 'Likes'],
   ['rating', 'Rating'],
 ]
-const formats = ['stl', '3mf', 'obj', 'ply', 'glb', 'gltf']
+const formats = ['stl', '3mf', 'obj', 'ply', 'glb', 'gltf', 'gcode', 'step']
 
 export function Browse() {
   const [params, setParams] = useSearchParams()

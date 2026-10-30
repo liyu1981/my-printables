@@ -15,7 +15,8 @@ CLI tooling. It lets a household:
 
 - Create accounts (open registration by default), with one or more admins.
 - Optional email verification (off by default for personal use; SMTP configurable).
-- Upload and manage 3D models and their files (`STL`, `3MF`, `OBJ`, `PLY`, `GLB`/`GLTF`, `GCODE`).
+- Upload and manage 3D models and their files (`STL`, `3MF`, `OBJ`, `PLY`, `GLB`/`GLTF`, `GCODE`, `STEP`).
+- Optional same-origin CubbySlicer hand-off for STL/3MF/OBJ/STEP files.
 - Browse, search, filter, like, bookmark, and download models.
 - Preview models in the browser with rotate/zoom/pan, file switching, and fullscreen.
 - Keep models public by default, or restrict to signed-in users, or keep private.
@@ -58,7 +59,7 @@ Principles:
 - Marketplace, payments, "Support creator", Prusa Eshop, brands, contests, clubs, events, community feed.
 - Self-service password reset by email, notifications/digests (email verification itself is in scope).
 - Social graph / follows, makes, remixes, direct messages.
-- STEP/STP/IGES upload, conversion, and preview; G-code preview; multi-tenant; S3/object storage; OIDC/LDAP.
+- IGES upload/conversion; multi-tenant; S3/object storage; OIDC/LDAP.
 - Compose and NAS-specific reverse-proxy packaging (post-v1); Docker image and multi-arch GHCR publishing are implemented.
 - Native mobile apps.
 
@@ -258,7 +259,7 @@ Indexes: `(status, visibility, published_at DESC)`, `(owner_id, created_at DESC)
 ### model_files
 `id`, `model_id`, `filename` (original, sanitized for display), `storage_path` (relative),
 `format` (`stl|3mf|obj|ply|glb|gltf`), `size_bytes`, `sha256`, `is_preview`, `sort_order`, `created_at`.
-STEP/STP is deliberately rejected in v1; a later migration adds those format values.
+STEP/STP is supported in v1 via client-side OpenCascade tessellation; the file is stored in its original format.
 
 ### model_images
 `id`, `model_id`, `storage_path` (relative original), `large_path`, `thumb_path`, `width`, `height`,
@@ -427,8 +428,7 @@ Authenticated mutations require `X-CSRF-Token` and a same-origin `Origin` check.
 
 1. `POST /api/models` → draft model with metadata.
 2. `POST /api/models/{id}/files` one file at a time (streamed to `$DATA_DIR/tmp`, hashed, validated against
-   the v1 allowlist, atomically renamed). Frontend uses `XMLHttpRequest` for upload progress. STEP/STP is
-   rejected here.
+   the v1 allowlist, atomically renamed). Frontend uses `XMLHttpRequest` for upload progress.
 3. `POST /api/models/{id}/images` for uploads **and** the client-rendered cover PNG.
 4. `PATCH /api/models/{id}` with `status=published` → appears in browse.
 5. Orphan drafts (no files, older than 7 days) are cleaned by a job.
@@ -535,10 +535,10 @@ $DATA_DIR/                 # default ./data
 | GLB | `.glb` | ✅ | Self-contained only |
 | GLTF | `.gltf` | ⚠️ | Only embedded buffers; external/texture URIs blocked |
 | GCODE | `.gcode`, `.gco`, `.g` | ✅ | Toolpath lines; extrusion orange, travel gray |
+| STEP | `.step`, `.stp` | ✅ | OpenCascade WASM tessellation for preview; original file retained |
 | Others | — | ❌ | Reject with a clear "unsupported format" message |
 
-`STEP`/`STP`/`IGES` upload is rejected in v1. The file-format allowlist and upload UI omit STEP; CAD import
-and conversion move to post-v1. Also note the extension is **3MF**, not "p3mf".
+IGES remains post-v1. Also note the extension is **3MF**, not "p3mf".
 
 ### Viewer stack
 - `three` + `three-stdlib` loaders (`STLLoader`, `ThreeMFLoader`, `OBJLoader`, `PLYLoader`, `GLTFLoader`),
@@ -818,7 +818,7 @@ for anonymous users; owner/admin rules hold; tag filtering and pagination are co
 
 ### M3 — 3D preview (5 d)
 Viewer with STL/3MF/OBJ/PLY/GLB; controls, fullscreen, file switching, thumbnails; loading/error states;
-client-generated cover; format validation; memory cleanup; mobile. STEP is rejected in v1.
+client-generated cover; format validation; memory cleanup; mobile. STEP preview uses occt-import-js.
 **Done when**: sample files render and fit correctly; switching files works; 150 MB STL is usable; closing
 releases memory; unsupported formats show download fallback.
 
@@ -843,7 +843,7 @@ checklist.
 backup can be restored.
 
 ### Later (post-v1, prioritized with you)
-Compose/NAS-specific packaging; STEP/STP import and STEP→GLB sidecar; makes/remixes; self-service
+Compose/NAS-specific packaging; STEP→GLB sidecar; makes/remixes; self-service
 password reset via SMTP; OIDC; resumable uploads; bulk import CLI (`myp import ./folder --owner …`);
 S3 storage; ClamAV; Draco/LOD; dark mode; Prometheus metrics.
 
@@ -858,8 +858,8 @@ S3 storage; ClamAV; Draco/LOD; dark mode; Prometheus metrics.
 - [ ] Registration is open by default; admin can close it. Admin can also create a user.
 - [ ] Email verification is off by default (immediate login). Enabled with a fake SMTP server, an
       unverified user receives a link, cannot log in before verifying, and can resend.
-- [ ] Upload STL, 3MF, OBJ, PLY, GLB; each appears with correct size/format/cover. STEP/STP upload is
-      rejected with a clear message.
+- [ ] Upload STL, 3MF, OBJ, PLY, GLB, GCODE, and STEP; each appears with correct size/format/cover,
+      and STEP renders in the 3D viewer.
 - [ ] Public model is viewable and downloadable while signed out.
 - [ ] Setting a model to "members" makes it disappear from anonymous browse and media requests return 404.
 - [ ] Private model is visible only to owner/admin.
@@ -905,13 +905,13 @@ S3 storage; ClamAV; Draco/LOD; dark mode; Prometheus metrics.
 | Registration | **Open by default**; admin toggle to close; admin-created users remain available |
 | Email | Optional email verification, **off by default**; SMTP env config; admin/CLI manual verify; password reset stays admin/CLI |
 | Default visibility | **Public** for new models |
-| STEP | **Post-v1**; v1 rejects STEP/STP and other CAD formats |
+| STEP | **Supported in v1** (`.step`/`.stp`) with browser-side OpenCascade preview |
 | TypeScript | **7.0.2**, strict; upgrade later when 8 ships |
 | v1 features | **Comments, ratings, tagging, and collections are in v1** (scoped small: one reply level, 1–5 stars, flat collection lists) |
 | Deployment | **Single binary first**; Docker/Compose/multi-arch NAS packaging post-v1 |
 | Data location | One local directory via `--data-dir` / `DATA_DIR`; default `./data` |
 
-Remaining post-v1 decisions: SMTP provider/from-address details, NAS target and UID/GID mapping, and the
-STEP conversion approach. Nothing blocks M0.
+Remaining post-v1 decisions: SMTP provider/from-address details and NAS target and UID/GID mapping.
+Nothing blocks M0.
 
 M0–M6 are implemented as the v1 single binary. See `README.md`, `doc/DEPLOY.md`, `doc/BACKUP.md`, and `doc/API.md`.

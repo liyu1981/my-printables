@@ -14,7 +14,7 @@ const emptySettings: SiteSettings = {
   emailVerificationEnabled: false,
   requireLoginToBrowse: false,
   maxUploadMB: 1024,
-  allowedFormats: 'stl,3mf,obj,ply,glb,gltf,gcode',
+  allowedFormats: 'stl,3mf,obj,ply,glb,gltf,gcode,step',
   footerText: 'Self-hosted 3D model library.',
   version: 'dev',
 }

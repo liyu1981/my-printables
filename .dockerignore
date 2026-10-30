@@ -14,3 +14,7 @@ internal/web/dist
 build-errors.log
 pnpm-debug.log*
 .DS_Store
+third_party/cubbyslicer/node_modules
+third_party/cubbyslicer/public/wasm
+third_party/cubbyslicer/dist
+internal/web/slicer

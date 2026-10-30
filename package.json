@@ -7,7 +7,9 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "pnpm build:web && pnpm build:go",
+    "build": "pnpm build:web && pnpm build:slicer && pnpm build:go",
+    "build:slicer": "node scripts/build-slicer.mjs",
+    "sync:slicer-engines": "node scripts/sync-cubby-engines.mjs",
     "build:web": "pnpm --dir web build",
     "build:web:dev": "pnpm --dir web exec vite build --mode development",
     "build:go": "CGO_ENABLED=0 go build -trimpath -ldflags \"-s -w -X myprintables/internal/cli.version=0.1.5 -X myprintables/internal/cli.commit=$(git rev-parse --short HEAD 2>/dev/null || echo none) -X myprintables/internal/cli.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)\" -o bin/myprintables ./cmd/myprintables",

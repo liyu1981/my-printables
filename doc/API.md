@@ -87,8 +87,7 @@ Base path: `/api`. Authenticated mutations require a session cookie plus `X-CSRF
 ## Notes
 
 - Model visibility is enforced on metadata, comments, and every media byte.
-- STEP/STP is rejected in v1.
-- Supported model formats: STL, 3MF, OBJ, PLY, GLB, GLTF, GCODE.
+- Supported model formats: STL, 3MF, OBJ, PLY, GLB, GLTF, GCODE, STEP.
 - Public model media is cacheable; members/private media is private-cache only.
 
 ## MCP
