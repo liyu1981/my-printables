@@ -1,5 +1,41 @@
 # Changelog
 
+## v0.1.6 — 2026-10-30
+
+### Features
+
+- STEP/STP upload support with browser-side OpenCascade tessellation for the inline preview and fullscreen viewer
+- STEP is now included in upload validation, folder import, format filters, generated covers, and model metadata
+- Self-hosted CubbySlicer integration at `/slicer/` using a pinned Git submodule
+- **Slice in CubbySlicer** actions on supported model files (STL, 3MF, OBJ, STEP)
+- Same-origin slicer hand-off so private and members-only files use the existing session
+- Per-file **Slice** links in the model Files tab
+- File switcher in the inline 3D preview when a model has multiple 3D files
+- Inline gallery 3D preview is kept in the gallery flow; the fullscreen viewer remains opt-in
+
+### Fixes and maintenance
+
+- Added a dedicated license section and third-party notices
+- Removed dead code, unused imports, and ineffective helpers across the Go backend and React frontend
+- Centralized supported file extensions, upload accept lists, and format labels in the frontend
+- Added strict trailing-JSON rejection, atomic admin-settings validation, and better update/stat error handling
+- Added missing audit entries for admin and media deletion actions
+- Fixed static-file behavior so missing assets return 404 and HEAD responses do not write bodies
+- Added SQLite constraint-code detection for unique conflicts
+- Enabled frontend unused-local/parameter checks
+- Fixed object URL leaks in upload previews and improved STEP worker crash recovery
+
+### Upgrade notes
+
+- Migration `008_step.sql` extends the stored model format allowlist and updates the default `allowed_formats` setting. It is applied automatically with `AUTO_MIGRATE=true`.
+- STEP files are stored unchanged; tessellation happens in the browser. There is no server-side STEP conversion.
+- CubbySlicer assets are embedded in release builds and included in the Docker image. Source builds should run:
+  ```sh
+  git submodule update --init --recursive
+  pnpm build
+  ```
+- CubbySlicer remains a separate **AGPL-3.0-or-later** application under `/slicer/`; its source and license are in `third_party/cubbyslicer`.
+
 ## v0.1.5 — 2026-10-29
 
 ### Features
